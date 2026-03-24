@@ -1,106 +1,64 @@
-# MLOps Stock Hybrid Ensemble (Hiếu-Hoàng Thesis)
+# MLOps Stock Hybrid Ensemble (Simplified Release)
 
-Building a Stock Price Prediction System Based on an MLOps Architecture with Ensemble Models on a Hybrid Cloud Platform.
+**Hệ thống Dự báo Giá Chứng khoán dựa trên Mô hình Hybrid Ensemble (TFT + LightGBM)**
 
-## 🚀 Key Features
-- **Hybrid Ensemble Model (Phase 5)**: Combining **Temporal Fusion Transformer (TFT)** and **LightGBM** via a **Stacking Meta-Learner**. 
-- **High Performance**: Achieving **82.8% average directional accuracy** for T+1 forecasting on VN30 stocks (VNM, VCB, HPG, FPT).
-- **MLOps Lifecycle**: Experiment tracking and artifact management via **MLflow**.
-- **Serving Governance**: Champion pinning + artifact manifest integrity validation before serving.
-- **DevSecOps**: Secure API with **RS256 Asymmetric JWT** and persistent **Audit Logging**.
-- **Data Pipeline**: Automated daily fetching from **Yahoo Finance** with 13 technical indicators.
-- **Release Gate Hardening**: Go/No-Go combines offline metrics, multi-window walk-forward stability, and decision backtest risk checks.
-- **Web Dashboard**: Modern Glassmorphism UI for real-time trend monitoring.
-
-## 📦 Project Structure
-- `app.py`: Secure FastAPI for prediction inference.
-- `dashboard.py`: FastAPI server for the Web Dashboard.
-- `ensemble_trainer.py`: Core training module with Stacking logic.
-- `tft_model.py` / `lgbm_model.py`: Model architecture definitions.
-- `yahoo_data.py` / `indicators.py`: Data fetching and feature engineering.
-- `monitor_drift.py`: K-S test for data drift detection.
-- `security.py`: JWT and RS256 security utilities.
-
-## 🛠 Quick Start
-
-1. **Install Dependencies**:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-2. **Set Environment Variables (Security + MLflow)**:
-   ```bash
-   # Required in production
-   export APP_ADMIN_USERNAME=admin
-   export APP_ADMIN_PASSWORD=<strong_password>
-   export APP_ENV=production
-   export APP_ALLOW_INSECURE_DEFAULTS=false
-   export PRIVATE_KEY_PEM='<your_private_key_pem_content>'
-   export PUBLIC_KEY_PEM='<your_public_key_pem_content>'
-   export JWT_ISSUER=nt214-mlops
-   export JWT_AUDIENCE=nt214-api
-
-   # Optional (default uses sqlite:///mlflow.db)
-   export MLFLOW_TRACKING_URI=sqlite:///mlflow.db
-
-   # Optional serving gates
-   export MIN_SERVE_DIRECTIONAL_ACC=0
-   export MAX_SERVE_VAL_RMSE=1000000000
-   ```
-
-3. **Run Web Dashboard**:
-   ```bash
-   python dashboard.py
-   ```
-   Access at `http://localhost:8081`
-
-4. **Run Secure API**:
-   ```bash
-   python app.py
-   ```
-   Endpoint: `GET /predict/{symbol}` (Requires JWT Bearer Token)
-
-5. **Backtest HOLD/BUY/SELL Decisions**:
-   ```bash
-   python backtest_decision.py
-   ```
-
-6. **Run Artifact Contract Check**:
-   ```bash
-   python artifact_contract_check.py
-   ```
-
-7. **Run Go/No-Go Release Gate**:
-   ```bash
-   python go_no_go_check.py
-   ```
-
-8. **Promote Champion Run (optional but recommended)**:
-   ```bash
-   python promote_champion.py --symbol FPT --run-id <mlflow_run_id>
-   ```
-
-9. **Full System Audit**:
-   ```bash
-   python run_full_audit.py
-   ```
-
-10. **Experiment Tracking**:
-   View MLflow UI:
-   ```bash
-   mlflow ui --backend-store-uri sqlite:///mlflow.db
-   ```
-
-## ✅ Go/No-Go Criteria (Current)
-- Artifact contract completeness + finished run.
-- Directional accuracy / action precision / action coverage range / action macro-F1.
-- Walk-forward stability (mean accuracy, accuracy std, mean macro-F1).
-- Decision backtest risk metrics (portfolio return, max drawdown, profit factor, Sharpe).
-
-## 🔒 Security Note
-- Private keys (`private_key.pem`) are stored locally. Do NOT commit to Git.
-- Audit logs are recorded in `audit_log.jsonl`.
+Dự án này là phiên bản tinh gọn (Simplified Edition) của hệ thống MLOps Stock Ensemble, tập trung thuần túy vào thuật toán **AI Cốt lõi** và **Giao diện Web / API**, lược bỏ hoàn toàn sự phức tạp của hạ tầng MLOps (MLflow) và Bảo mật (JWT) để dễ dàng triển khai, học tập và báo cáo.
 
 ---
-**Authors**: Lê Đình Hiếu, Trần Việt Hoàng (ATTT2023.1)  
-**Advisor**: ThS. Lê Anh Tuấn
+
+## 🚀 Tính năng nổi bật
+- **Hybrid Ensemble Model**: Kết hợp **Temporal Fusion Transformer (TFT)** chuyên dự tính xu hướng dài hạn và **LightGBM** chuyên phản ứng sự cố ngắn hạn để cho ra dự đoán chính xác nhất.
+- **Mục tiêu T+3 Thực tế**: Dự đoán giá chứng khoán tại mốc **T+3**, phù hợp hoàn toàn với quy định chu kỳ thanh toán T+2.5 của thị trường chứng khoán Việt Nam.
+- **Tự động hóa Feature Engineering**: Tải dữ liệu tự động hằng ngày từ Yahoo Finance và tính toán 8 chỉ báo kỹ thuật (RSI, MACD, Bollinger Bands...).
+- **Kế toán Giao dịch (Decision Policy)**: Thuật toán không chỉ đoán giá, mà tính cả thuế phí, độ trượt giá, và rủi ro mâu thuẫn giữa 2 AI để chốt lệnh **MUA / BÁN / GIỮ**.
+- **Web Dashboard**: Giao diện người dùng Glassmorphism cực kỳ hiện đại để theo dõi kết quả.
+- **REST API**: API trả về dữ liệu chuẩn JSON siêu tốc bằng FastAPI.
+
+## 📦 Cấu trúc Thư mục Hệ thống
+Hệ thống gồm 9 module Python chính và thư mục giao diện:
+
+- `models/`: Chứa các "não bộ" đã huấn luyện (File weights, pickle, scalers).
+- `tft_model.py`: Mạng Deep Learning PyTorch (VSN, LSTM, Attention).
+- `lgbm_model.py`: Mạng Cây quyết định Gradient Boosting.
+- `ensemble_trainer.py`: Kịch bản huấn luyện trộn (Stacking Meta-Learner).
+- `final_ensemble_train.py`: Khởi động huấn luyện hàng loạt cho 4 mã (VNM, VCB, HPG, FPT).
+- `yahoo_data.py`: Giao tiếp tải dữ liệu từ Yahoo Finance.
+- `indicators.py`: Tính toán các chỉ báo Phân tích kỹ thuật.
+- `decision_policy.py`: Mạch ra quyết định MUA/BÁN Kế toán.
+- `app.py`: Máy chủ phân phối REST API.
+- `dashboard.py`: Máy chủ Server-Side Rendering cho Giao diện Trình duyệt.
+- `templates/`: File `index.html` của trang Web.
+
+## 🛠 Hướng dẫn Cài đặt & Chạy
+
+### 1. Cài đặt môi trường
+Bắt buộc cần Python 3.9+ 
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Huấn luyện Mô hình (Tùy chọn)
+Hệ thống đã có sẵn mô hình trong thư mục `./models/`. Nhưng nếu bạn muốn tự train lại với dữ liệu mới nhất:
+```bash
+python final_ensemble_train.py
+```
+*(Quá trình này tốn khoảng 10-20 phút cho 4 mã chứng khoán).*
+
+### 3. Khởi động Web Dashboard (Giao diện đồ họa)
+Mở terminal và chạy lệnh:
+```bash
+python dashboard.py
+```
+👉 Truy cập trình duyệt: `http://localhost:8081`
+
+### 4. Khởi động Máy chủ API (Cho lập trình viên)
+Mở một cửa sổ terminal khác và chạy lệnh:
+```bash
+python app.py
+```
+👉 Truy cập API: `http://localhost:8080/predict/FPT`
+(Hệ thống sẽ trả về dữ liệu dạng JSON)
+
+---
+**Tác giả**: Lê Đình Hiếu, Trần Việt Hoàng (ATTT2023.1)  
+**Giáo viên Hướng dẫn**: ThS. Lê Anh Tuấn
