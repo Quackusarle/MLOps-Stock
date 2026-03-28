@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  data-api:
+    build: 
+      context: .
+      dockerfile: services/data_api/Dockerfile
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./src:/app/src
+    restart: always
+
+  tft-api:
+    build: 
+      context: .
+      dockerfile: services/tft_api/Dockerfile
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./src:/app/src
+      - ./models:/app/models
+    restart: always
+
+  lgbm-api:
+    build: 
+      context: .
+      dockerfile: services/lgbm_api/Dockerfile
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./src:/app/src
+      - ./models:/app/models
+    restart: always
+
+  ensemble-api:
+    build: 
+      context: .
+      dockerfile: services/ensemble_api/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DATA_SERVICE_URL=http://data-api:8001/fetch/{}
+      - TFT_SERVICE_URL=http://tft-api:8002/predict/tft
+      - LGBM_SERVICE_URL=http://lgbm-api:8003/predict/lgbm
+    volumes:
+      - ./src:/app/src
+      - ./models:/app/models
+    depends_on:
+      - data-api
+      - tft-api
+      - lgbm-api
+    restart: always
+
+  dashboard-ui:
+    build: 
+      context: .
+      dockerfile: services/dashboard_ui/Dockerfile
+    ports:
+      - "8081:8081"
+    environment:
+      - ENSEMBLE_API_URL=http://ensemble-api:8080/predict/{}
+    volumes:
+      - ./services/dashboard_ui/templates:/app/templates
+      - ./services/dashboard_ui/static:/app/static
+    depends_on:
+      - ensemble-api
+    restart: always

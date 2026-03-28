@@ -150,6 +150,12 @@
             </div>
         </div>
 
+        {% if error %}
+        <div style="background: rgba(244, 63, 94, 0.2); border: 1px solid #fb7185; color: #fb7185; padding: 20px; border-radius: 16px; margin-bottom: 30px; backdrop-filter: blur(10px);">
+            <strong>⚠️ Lỗi hệ thống:</strong> {{ error }}
+        </div>
+        {% endif %}
+
         <div class="grid">
             {% for symbol, data in predictions.items() %}
             <div class="card">

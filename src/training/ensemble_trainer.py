@@ -5,13 +5,16 @@ from torch.utils.data import DataLoader, Dataset
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression
-from tft_model import TFTSkeleton
-from lgbm_model import LGBMModel
-from yahoo_data import YahooData
-import os
-import joblib
 import json
 import random
+
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+from src.models_logic.tft_model import TFTSkeleton
+from src.models_logic.lgbm_model import LGBMModel
+from src.data_pipeline.yahoo_data import YahooData
 
 class EnsembleDataset(Dataset):
     def __init__(self, data, target, window_size=60):

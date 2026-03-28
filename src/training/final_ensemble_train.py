@@ -1,5 +1,9 @@
 import traceback
-from ensemble_trainer import train_ensemble
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+from src.training.ensemble_trainer import train_ensemble
 
 def train_production_models():
     # Target symbols

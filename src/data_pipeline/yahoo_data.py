@@ -2,7 +2,14 @@ import yfinance as yf
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
-from indicators import add_technical_indicators
+import sys
+import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+
+try:
+    from src.data_pipeline.indicators import add_technical_indicators
+except ImportError:
+    from indicators import add_technical_indicators
 
 class YahooData:
     def __init__(self):

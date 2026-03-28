@@ -10,3 +10,4 @@ jinja2
 scipy
 matplotlib
 python-dotenv
+httpx
