@@ -1,0 +1,15 @@
+FROM python:3.9-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# We override this during KFP creation, but ensuring latest is good
+RUN pip install --no-cache-dir kfp mlflow boto3 s3fs
+
+COPY src/ /app/src/
+ENV PYTHONPATH="/app"
+
+# Entrypoint will be overridden by KFP, defaulting to Python for adhoc local testing
+CMD ["python", "src/training/final_ensemble_train.py"]

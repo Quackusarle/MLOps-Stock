@@ -11,3 +11,7 @@ scipy
 matplotlib
 python-dotenv
 httpx
+kfp
+mlflow
+boto3
+s3fs

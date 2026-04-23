@@ -7,6 +7,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression
 import json
 import random
+import joblib
+import mlflow
 
 import sys
 import os
@@ -203,6 +205,25 @@ def train_ensemble(symbol="FPT", epochs=50, window_size=60):
         json.dump(manifest, f, indent=2)
             
     print(f"Validation (Stacked): MAE={mae:.4f}, RMSE={rmse:.4f}, Directional Acc={directional_acc:.2f}%")
+    
+    # --- 5. MLflow Tracking ---
+    mlflow.set_experiment("stock_ensemble_training")
+    with mlflow.start_run(run_name=f"train_{sym}_{random.randint(1000,9999)}"):
+        mlflow.log_param("symbol", sym)
+        mlflow.log_param("epochs", epochs)
+        mlflow.log_param("window_size", window_size)
+        mlflow.log_param("features", len(features))
+        
+        mlflow.log_metric("mae", mae)
+        mlflow.log_metric("rmse", rmse)
+        mlflow.log_metric("directional_acc", directional_acc)
+        mlflow.log_metric("tft_best_val_loss", best_val_loss)
+        
+        # Log all artifacts in MODELS_DIR related to this symbol
+        for f in manifest["artifacts"]:
+            mlflow.log_artifact(os.path.join(MODELS_DIR, f), artifact_path="models")
+        mlflow.log_artifact(manifest_path, artifact_path="models")
+        
     return tft, lgbm, meta_learner
 
 if __name__ == "__main__":

@@ -5,9 +5,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 
 from src.training.ensemble_trainer import train_ensemble
 
-def train_production_models():
-    # Target symbols
-    symbols = ["VNM", "VCB", "HPG", "FPT"]
+import argparse
+
+def train_production_models(symbols=None):
+    if not symbols:
+        symbols = ["VNM", "VCB", "HPG", "FPT"]
     print(f"Starting Production Training for: {symbols}")
     
     failed = []
@@ -24,8 +26,16 @@ def train_production_models():
 
     if failed:
         print(f"\nTraining failed for: {failed}")
+        sys.exit(1)
     else:
         print("\nAll models trained successfully! Artifacts saved to ./models/")
 
 if __name__ == "__main__":
-    train_production_models()
+    parser = argparse.ArgumentParser(description='Train Stock Predictor Models')
+    parser.add_argument('--symbol', type=str, default=None, help='A specific stock symbol to train')
+    args = parser.parse_args()
+    
+    if args.symbol:
+        train_production_models([args.symbol.upper()])
+    else:
+        train_production_models()
