@@ -1,5 +1,6 @@
-name: MLOps Training Pipeline
+name: "1. Training Pipeline"
 
+# Kích hoạt khi có thay đổi code training hoặc chạy thủ công
 on:
   push:
     branches:
@@ -7,53 +8,79 @@ on:
     paths:
       - 'src/**'
       - 'kfp_pipeline.py'
+      - 'run_pipeline.py'
       - 'Dockerfile.training'
+      - 'requirements.txt'
   workflow_dispatch:
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}-trainer 
+  IMAGE_NAME: mlops-stock-trainer
 
 jobs:
-  build-and-run-pipeline:
+  build-and-push:
+    name: Build & Push Trainer Image
     runs-on: [self-hosted, k3s, mlops]
-    
-    permissions:
-      contents: read
-      packages: write
-      
+
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata (tags)
+        id: meta
+        run: |
+          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}"
+          SHA_TAG="${IMAGE}:sha-$(echo ${{ github.sha }} | cut -c1-7)"
+          LATEST_TAG="${IMAGE}:latest"
+          echo "sha_tag=${SHA_TAG}" >> $GITHUB_OUTPUT
+          echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
+          echo "📦 Will build: ${LATEST_TAG} and ${SHA_TAG}"
+
+      - name: Build & Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile.training
+          push: true
+          tags: |
+            ${{ steps.meta.outputs.latest_tag }}
+            ${{ steps.meta.outputs.sha_tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Set trainer image env for next step
+        run: echo "TRAINER_IMAGE=${{ steps.meta.outputs.latest_tag }}" >> $GITHUB_ENV
+
+  submit-kubeflow-pipeline:
+    name: Compile & Submit Kubeflow Pipeline
+    runs-on: [self-hosted, k3s, mlops]
+    needs: build-and-push
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
         with:
           python-version: '3.9'
+          cache: 'pip'
 
-      - name: Install dependencies
+      - name: Install KFP dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install kfp==2.* requests
-
-      - name: Đăng nhập vào Github Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build và Push Image lên GHCR
-        run: |
-          LOWER_IMAGE_NAME=$(echo "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" | tr '[:upper:]' '[:lower:]')
-          
-          docker build -t $LOWER_IMAGE_NAME -f Dockerfile.training .
-          docker push $LOWER_IMAGE_NAME
-          
-          echo "TRAINER_IMAGE=$LOWER_IMAGE_NAME" >> $GITHUB_ENV
+          pip install "kfp>=2.0,<3.0" requests
 
       - name: Compile & Submit Kubeflow Pipeline
         env:
-          KFP_HOST: "http://ml-pipeline.kubeflow.svc.cluster.local:8888" 
-        run: |
-          python run_pipeline.py
+          KFP_HOST: "http://ml-pipeline.kubeflow.svc.cluster.local:8888"
+          TRAINER_IMAGE: "${{ secrets.DOCKERHUB_USERNAME }}/mlops-stock-trainer:latest"
+        run: python run_pipeline.py

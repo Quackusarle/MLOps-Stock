@@ -1,0 +1,131 @@
+name: "2. Model Services Pipeline"
+
+# Kích hoạt khi có thay đổi ở bất kỳ service API nào
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'services/lgbm_api/**'
+      - 'services/tft_api/**'
+      - 'services/ensemble_api/**'
+      - 'services/data_api/**'
+      - 'src/**'           # Các services dùng COPY src/ nên cần rebuild khi src thay đổi
+      - 'requirements.txt'
+  workflow_dispatch:
+    inputs:
+      service:
+        description: 'Service cụ thể cần build (để trống = build tất cả)'
+        required: false
+        type: choice
+        options:
+          - '' # Build all
+          - lgbm_api
+          - tft_api
+          - ensemble_api
+          - data_api
+
+jobs:
+  # Bước 1: Phát hiện service nào có thay đổi
+  detect-changes:
+    name: Detect Changed Services
+    runs-on: [self-hosted, k3s, mlops]
+    outputs:
+      lgbm_api: ${{ steps.filter.outputs.lgbm_api }}
+      tft_api: ${{ steps.filter.outputs.tft_api }}
+      ensemble_api: ${{ steps.filter.outputs.ensemble_api }}
+      data_api: ${{ steps.filter.outputs.data_api }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            lgbm_api:
+              - 'services/lgbm_api/**'
+              - 'src/**'
+              - 'requirements.txt'
+            tft_api:
+              - 'services/tft_api/**'
+              - 'src/**'
+              - 'requirements.txt'
+            ensemble_api:
+              - 'services/ensemble_api/**'
+              - 'src/**'
+              - 'requirements.txt'
+            data_api:
+              - 'services/data_api/**'
+              - 'src/**'
+              - 'requirements.txt'
+
+  # Bước 2: Build song song tất cả services có thay đổi
+  build-and-push:
+    name: Build ${{ matrix.service }}
+    runs-on: [self-hosted, k3s, mlops]
+    needs: detect-changes
+
+    # Build service nếu: (1) có thay đổi được phát hiện, HOẶC (2) được chỉ định thủ công
+    strategy:
+      fail-fast: false  # Nếu 1 service fail, các service khác vẫn tiếp tục
+      matrix:
+        include:
+          - service: lgbm_api
+            image_suffix: lgbm-api
+            should_build: ${{ needs.detect-changes.outputs.lgbm_api == 'true' || github.event.inputs.service == 'lgbm_api' || github.event.inputs.service == '' && github.event_name == 'workflow_dispatch' }}
+          - service: tft_api
+            image_suffix: tft-api
+            should_build: ${{ needs.detect-changes.outputs.tft_api == 'true' || github.event.inputs.service == 'tft_api' || github.event.inputs.service == '' && github.event_name == 'workflow_dispatch' }}
+          - service: ensemble_api
+            image_suffix: ensemble-api
+            should_build: ${{ needs.detect-changes.outputs.ensemble_api == 'true' || github.event.inputs.service == 'ensemble_api' || github.event.inputs.service == '' && github.event_name == 'workflow_dispatch' }}
+          - service: data_api
+            image_suffix: data-api
+            should_build: ${{ needs.detect-changes.outputs.data_api == 'true' || github.event.inputs.service == 'data_api' || github.event.inputs.service == '' && github.event_name == 'workflow_dispatch' }}
+
+    steps:
+      - name: Skip check
+        if: ${{ matrix.should_build != 'true' }}
+        run: echo "⏭️  Skipping ${{ matrix.service }} — no changes detected"
+
+      - name: Checkout Code
+        if: ${{ matrix.should_build == 'true' }}
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        if: ${{ matrix.should_build == 'true' }}
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        if: ${{ matrix.should_build == 'true' }}
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract tags
+        if: ${{ matrix.should_build == 'true' }}
+        id: meta
+        run: |
+          IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/mlops-stock-${{ matrix.image_suffix }}"
+          SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "tags=${IMAGE}:latest,${IMAGE}:sha-${SHA_SHORT}" >> $GITHUB_OUTPUT
+          echo "🏷️  Tags: ${IMAGE}:latest | ${IMAGE}:sha-${SHA_SHORT}"
+
+      - name: Build & Push ${{ matrix.service }}
+        if: ${{ matrix.should_build == 'true' }}
+        uses: docker/build-push-action@v5
+        with:
+          # Build luôn từ root vì Dockerfile dùng COPY src/, COPY models/
+          context: .
+          file: ./services/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,scope=${{ matrix.service }},mode=max
+
+      - name: Summary
+        if: ${{ matrix.should_build == 'true' }}
+        run: echo "✅ Successfully built and pushed ${{ matrix.service }}"
