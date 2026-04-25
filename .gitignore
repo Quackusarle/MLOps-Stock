@@ -24,3 +24,5 @@ test_results/
 
 # Ignore Vietnamese code explanation files
 giang_code/
+
+models/
