@@ -20,7 +20,8 @@ def compile_and_submit():
         
         # 4. Submit pipeline run
         experiment_name = 'Stock Prediction Automations'
-        run_name = 'ARC_Triggered_Run'
+        import time
+        run_name = f'ARC_Triggered_Run_{int(time.time())}'
         
         # Lấy experiment (tạo mới nếu chưa có)
         experiment = client.create_experiment(name=experiment_name)

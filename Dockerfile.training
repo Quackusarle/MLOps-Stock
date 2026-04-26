@@ -1,6 +1,6 @@
 # ============================================================
 # Training Image — Dùng bởi KFP để huấn luyện model
-# Cần đầy đủ: torch + lightgbm + mlflow + kfp
+# Tối ưu: CPU-only torch, chỉ cài thư viện training cần
 # ============================================================
 FROM python:3.9-slim
 
@@ -10,14 +10,15 @@ ENV PYTHONPATH="/app"
 
 WORKDIR /app
 
-# Layer 1: System deps (cached lâu dài)
+# Layer 1: System deps cho LightGBM native (cached lâu dài)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc libgomp1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Layer 2: Heavy ML dependencies (cached — chỉ rebuild khi requirements.txt thay đổi)
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Layer 2: Training-specific dependencies (cached mạnh)
+COPY requirements.training.txt .
+RUN pip install --no-cache-dir -r requirements.training.txt \
+    && rm -rf /root/.cache/pip
 
 # Layer 3: Source code (rebuild nhanh khi code thay đổi)
 COPY src/ /app/src/
