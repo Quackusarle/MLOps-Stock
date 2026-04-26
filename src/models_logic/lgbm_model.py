@@ -1,5 +1,4 @@
 import lightgbm as lgb
-import numpy as np
 
 class LGBMModel:
     def __init__(self, params=None):

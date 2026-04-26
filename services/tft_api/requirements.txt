@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+pandas
+numpy
+torch --index-url https://download.pytorch.org/whl/cpu
+joblib
+mlflow
+boto3
+s3fs

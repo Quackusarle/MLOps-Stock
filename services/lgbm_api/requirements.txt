@@ -1,0 +1,9 @@
+fastapi
+uvicorn[standard]
+pandas
+numpy
+lightgbm
+joblib
+mlflow
+boto3
+s3fs

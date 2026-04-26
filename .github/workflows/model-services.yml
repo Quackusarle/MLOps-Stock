@@ -1,6 +1,5 @@
 name: "2. Model Services Pipeline"
 
-# Kích hoạt khi có thay đổi ở bất kỳ service API nào
 on:
   push:
     branches:

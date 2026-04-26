@@ -1,15 +1,26 @@
+# ============================================================
+# Training Image — Dùng bởi KFP để huấn luyện model
+# Cần đầy đủ: torch + lightgbm + mlflow + kfp
+# ============================================================
 FROM python:3.9-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH="/app"
 
 WORKDIR /app
 
+# Layer 1: System deps (cached lâu dài)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Layer 2: Heavy ML dependencies (cached — chỉ rebuild khi requirements.txt thay đổi)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# We override this during KFP creation, but ensuring latest is good
-RUN pip install --no-cache-dir kfp mlflow boto3 s3fs
-
+# Layer 3: Source code (rebuild nhanh khi code thay đổi)
 COPY src/ /app/src/
-ENV PYTHONPATH="/app"
 
-# Entrypoint will be overridden by KFP, defaulting to Python for adhoc local testing
+# KFP sẽ override entrypoint, default cho test local
 CMD ["python", "src/training/final_ensemble_train.py"]
