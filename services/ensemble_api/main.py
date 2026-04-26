@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException
 import numpy as np
 import joblib
 from src.models_logic.decision_policy import build_decision, DecisionContext
+from src.models_logic.model_loader import download_model_artifacts
 
 app = FastAPI(title="Ensemble API Gateway")
 
@@ -48,10 +49,13 @@ async def ensemble_predict(ticker: str):
             raise ValueError(f"Model errors: TFT={tft_res.get('error')}, LGBM={lgbm_res.get('error')}")
 
         # 3. Phân giải bằng Meta-Learner để tìm giá trị cân bằng nhất
-        MODELS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../models'))
-        meta_path = os.path.join(MODELS_DIR, f"{sym}_meta_learner.pkl")
+        try:
+            MODELS_DIR = download_model_artifacts(sym)
+            meta_path = os.path.join(MODELS_DIR, f"{sym}_meta_learner.pkl")
+        except FileNotFoundError:
+            meta_path = None
         
-        if not os.path.exists(meta_path):
+        if meta_path is None or not os.path.exists(meta_path):
              meta_prediction = (tft_price + lgbm_price) / 2
         else:
             meta_learner = joblib.load(meta_path)

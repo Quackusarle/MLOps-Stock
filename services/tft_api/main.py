@@ -4,11 +4,12 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Dict, Any, List
+from typing import Dict, List
 import pandas as pd
 import torch
 import joblib
 from src.models_logic.tft_model import TFTSkeleton
+from src.models_logic.model_loader import download_model_artifacts
 
 app = FastAPI(title="TFT Inference Service")
 
@@ -20,7 +21,10 @@ class DataPayload(BaseModel):
 def predict_tft(payload: DataPayload):
     try:
         sym = payload.ticker.upper()
-        MODELS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../models'))
+        
+        # Tải weights từ MLflow/MinIO (có cache)
+        MODELS_DIR = download_model_artifacts(sym)
+        
         tft_path = os.path.join(MODELS_DIR, f"{sym}_tft_model.pt")
         scaler_x_path = os.path.join(MODELS_DIR, f"{sym}_scaler_x.pkl")
         scaler_y_path = os.path.join(MODELS_DIR, f"{sym}_scaler_y.pkl")
@@ -57,6 +61,8 @@ def predict_tft(payload: DataPayload):
             "model": "Temporal Fusion Transformer",
             "predicted_t3": float(pred_price)
         }
+    except FileNotFoundError as e:
+        return {"model": "Temporal Fusion Transformer", "predicted_t3": None, "error": str(e)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
