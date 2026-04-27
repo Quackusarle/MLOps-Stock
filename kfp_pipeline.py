@@ -28,12 +28,18 @@ def stock_training_pipeline(
     symbols: list = ["VNM", "VCB", "HPG", "FPT"]
 ):
     # Iterate over symbols to launch parallel training tasks
-    with dsl.ParallelFor(symbols) as item:
+    with dsl.ParallelFor(symbols, parallelism=1) as item:
         train_task = train_stock_model(symbol=item)
         train_task.set_env_variable('MLFLOW_TRACKING_URI', 'http://mlflow-local.mlops-infra.svc.cluster.local:5000')
         train_task.set_env_variable('MLFLOW_S3_ENDPOINT_URL', 'http://minio-svc.mlops-infra.svc.cluster.local:9000')
         train_task.set_env_variable('AWS_ACCESS_KEY_ID', 'minioadmin')
         train_task.set_env_variable('AWS_SECRET_ACCESS_KEY', 'nammoadidaphat')
+        # Tối ưu CPU cho PyTorch/LightGBM khi chạy trong container
+        train_task.set_env_variable('OMP_NUM_THREADS', '2')
+        train_task.set_env_variable('MKL_NUM_THREADS', '2')
+        # Set CPU và Memory limits
+        train_task.set_cpu_limit('2')
+        train_task.set_memory_limit('4G')
 
 if __name__ == '__main__':
     # Compile the pipeline definition into a YAML file
