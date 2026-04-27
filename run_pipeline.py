@@ -24,7 +24,7 @@ def compile_and_submit():
         run_name = f'ARC_Triggered_Run_{int(time.time())}'
         
         # Lấy experiment (tạo mới nếu chưa có)
-        experiment = client.create_experiment(name=experiment_name)
+        experiment = client.create_experiment(name=experiment_name, namespace='kubeflow')
         
         # Submit execution 
         run_result = client.run_pipeline(
