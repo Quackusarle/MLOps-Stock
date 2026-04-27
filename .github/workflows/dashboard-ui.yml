@@ -1,6 +1,5 @@
 name: "3. Dashboard UI Pipeline"
 
-# Kích hoạt khi có thay đổi ở Dashboard UI
 on:
   push:
     branches:
@@ -51,7 +50,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:dashboard
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:dashboard,mode=max
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:dashboard,mode=min
 
       - name: Job Summary
         run: |

@@ -1,6 +1,5 @@
 name: "1. Training Pipeline"
 
-# Kích hoạt khi có thay đổi code training hoặc chạy thủ công
 on:
   push:
     branches:
@@ -57,7 +56,7 @@ jobs:
             ${{ steps.meta.outputs.latest_tag }}
             ${{ steps.meta.outputs.sha_tag }}
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:trainer
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:trainer,mode=max
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:trainer,mode=min
 
       - name: Set trainer image env for next step
         run: echo "TRAINER_IMAGE=${{ steps.meta.outputs.latest_tag }}" >> $GITHUB_ENV

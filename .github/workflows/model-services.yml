@@ -9,7 +9,7 @@ on:
       - 'services/tft_api/**'
       - 'services/ensemble_api/**'
       - 'services/data_api/**'
-      - 'src/**'           # Các services dùng COPY src/ nên cần rebuild khi src thay đổi
+      - 'src/**'
       - 'requirements.txt'
   workflow_dispatch:
     inputs:
@@ -18,14 +18,13 @@ on:
         required: false
         type: choice
         options:
-          - '' # Build all
+          - ''
           - lgbm_api
           - tft_api
           - ensemble_api
           - data_api
 
 jobs:
-  # Bước 1: Phát hiện service nào có thay đổi
   detect-changes:
     name: Detect Changed Services
     runs-on: [self-hosted, k3s, mlops]
@@ -60,15 +59,13 @@ jobs:
               - 'src/**'
               - 'requirements.txt'
 
-  # Bước 2: Build song song tất cả services có thay đổi
   build-and-push:
     name: Build ${{ matrix.service }}
     runs-on: [self-hosted, k3s, mlops]
     needs: detect-changes
 
-    # Build service nếu: (1) có thay đổi được phát hiện, HOẶC (2) được chỉ định thủ công
     strategy:
-      fail-fast: false  # Nếu 1 service fail, các service khác vẫn tiếp tục
+      fail-fast: false
       matrix:
         include:
           - service: lgbm_api
@@ -114,7 +111,7 @@ jobs:
           IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/mlops-stock-${{ matrix.image_suffix }}"
           SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
           echo "tags=${IMAGE}:latest,${IMAGE}:sha-${SHA_SHORT}" >> $GITHUB_OUTPUT
-          echo "🏷️  Tags: ${IMAGE}:latest | ${IMAGE}:sha-${SHA_SHORT}"
+          echo "Tags: ${IMAGE}:latest | ${IMAGE}:sha-${SHA_SHORT}"
 
       - name: Build & Push ${{ matrix.service }}
         if: ${{ matrix.should_build == 'true' }}
@@ -126,7 +123,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:${{ matrix.service }}
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:${{ matrix.service }},mode=max
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:${{ matrix.service }},mode=min
 
       - name: Summary
         if: ${{ matrix.should_build == 'true' }}
