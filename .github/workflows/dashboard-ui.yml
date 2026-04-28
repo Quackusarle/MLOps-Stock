@@ -39,7 +39,7 @@ jobs:
           IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}"
           SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
           echo "tags=${IMAGE}:latest,${IMAGE}:sha-${SHA_SHORT}" >> $GITHUB_OUTPUT
-          echo "🏷️  Tags: ${IMAGE}:latest | ${IMAGE}:sha-${SHA_SHORT}"
+          echo "Tags: ${IMAGE}:latest | ${IMAGE}:sha-${SHA_SHORT}"
 
       - name: Build & Push Dashboard Image
         uses: docker/build-push-action@v5
@@ -54,7 +54,7 @@ jobs:
 
       - name: Job Summary
         run: |
-          echo "## ✅ Dashboard UI Deployed" >> $GITHUB_STEP_SUMMARY
+          echo "## Dashboard UI Deployed" >> $GITHUB_STEP_SUMMARY
           echo "**Images pushed to Docker Hub:**" >> $GITHUB_STEP_SUMMARY
           echo "- \`${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
           echo "- \`${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:sha-$(echo ${{ github.sha }} | cut -c1-7)\`" >> $GITHUB_STEP_SUMMARY

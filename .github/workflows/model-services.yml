@@ -84,7 +84,7 @@ jobs:
     steps:
       - name: Skip check
         if: ${{ matrix.should_build != 'true' }}
-        run: echo "⏭️  Skipping ${{ matrix.service }} — no changes detected"
+        run: echo "⏭Skipping ${{ matrix.service }} — no changes detected"
 
       - name: Checkout Code
         if: ${{ matrix.should_build == 'true' }}
@@ -127,4 +127,4 @@ jobs:
 
       - name: Summary
         if: ${{ matrix.should_build == 'true' }}
-        run: echo "✅ Successfully built and pushed ${{ matrix.service }}"
+        run: echo "Successfully built and pushed ${{ matrix.service }}"

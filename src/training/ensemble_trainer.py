@@ -37,11 +37,15 @@ def train_ensemble(symbol="FPT", epochs=50, window_size=60):
     MODELS_DIR = "./models"
     os.makedirs(MODELS_DIR, exist_ok=True)
     
-    data_provider = YahooData()
-    df = data_provider.get_historical_data(symbol, days=1000)
+    import pandas as pd
+    data_path = f"data/{symbol.upper()}.csv"
+    if not os.path.exists(data_path):
+        raise RuntimeError(f"Data file {data_path} not found. Ensure DVC pull was executed.")
     
-    if df is None:
-        raise RuntimeError(f"No valid training data for {symbol}")
+    df = pd.read_csv(data_path, index_col=0, parse_dates=True)
+    
+    if df.empty:
+        raise RuntimeError(f"No valid training data for {symbol} in {data_path}")
     
     # 13 Features
     features = [

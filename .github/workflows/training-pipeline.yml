@@ -44,7 +44,12 @@ jobs:
           LATEST_TAG="${IMAGE}:latest"
           echo "sha_tag=${SHA_TAG}" >> $GITHUB_OUTPUT
           echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
-          echo "📦 Will build: ${LATEST_TAG} and ${SHA_TAG}"
+          echo "Will build: ${LATEST_TAG} and ${SHA_TAG}"
+
+      - name: DVC Pull Data
+        run: |
+          pip install "dvc[s3]"
+          dvc pull || echo "No DVC data to pull yet"
 
       - name: Build & Push Docker Image
         uses: docker/build-push-action@v5

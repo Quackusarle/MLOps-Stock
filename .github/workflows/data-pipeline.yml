@@ -1,0 +1,64 @@
+name: "2. Data Ingestion & DVC Push"
+
+on:
+  schedule:
+    - cron: '0 0 * * 0' # 0:00 Chủ Nhật
+  workflow_dispatch:
+
+jobs:
+  fetch-and-version-data:
+    name: Kéo dữ liệu & Lưu MinIO
+    runs-on: [self-hosted, k3s, mlops]
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Để có thể push tag lên git
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.15'
+
+      - name: Cài đặt thư viện & DVC
+        run: |
+          python -m pip install --upgrade pip
+          pip install yfinance pandas numpy
+          pip install "dvc[s3]"
+
+      - name: Tải dữ liệu mới nhất
+        run: |
+          # Gọi script Python để tải file CSV
+          python src/data_pipeline/download_latest.py
+      - name: Cấu hình DVC kết nối vào MinIO K3s
+        run: |
+          dvc init || true
+          dvc remote add -d myminio s3://dvc-storage || true
+          dvc remote modify myminio endpointurl http://minio-svc.mlops-infra.svc.cluster.local:9000
+          dvc remote modify myminio access_key_id minioadmin
+          dvc remote modify myminio secret_access_key nammoadidaphat
+
+      - name: Đẩy Data nặng lên MinIO
+        run: |
+          dvc add data/
+          dvc push
+
+      - name: Commit file `.dvc` và đánh Tag ngày tháng lên Github
+        run: |
+          git config --global user.name "Data-Bot"
+          git config --global user.email "bot@mlops.local"
+          git add data.dvc .dvc/config .gitignore
+          
+          # Lấy ngày hiện tại
+          TODAY=$(date +'%Y-%m-%d')
+          
+          # Commit thay đổi
+          git commit -m "Auto-fetch data for $TODAY" || echo "Không có data mới"
+          
+          # Đánh dấu (Tag) phiên bản dữ liệu
+          git tag -a "data-$TODAY" -m "Phiên bản dữ liệu chứng khoán ngày $TODAY" || true
+          
+          # Push code và Push Tag
+          git push origin main
+          git push origin "data-$TODAY"

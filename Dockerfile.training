@@ -20,8 +20,9 @@ COPY requirements.training.txt .
 RUN pip install --no-cache-dir -r requirements.training.txt \
     && rm -rf /root/.cache/pip
 
-# Layer 3: Source code (rebuild nhanh khi code thay đổi)
+# Layer 3: Source code & Data
 COPY src/ /app/src/
+COPY data/ /app/data/
 
 # KFP sẽ override entrypoint, default cho test local
 CMD ["python", "src/training/final_ensemble_train.py"]
