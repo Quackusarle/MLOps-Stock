@@ -5,6 +5,9 @@ on:
     - cron: '0 0 * * 0' # 0:00 Chủ Nhật
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   fetch-and-version-data:
     name: Kéo dữ liệu & Lưu MinIO
