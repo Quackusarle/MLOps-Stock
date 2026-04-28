@@ -57,10 +57,11 @@ jobs:
         with:
           python-version: '3.11.15'
           cache: 'pip'
+          cache-dependency-path: '.github/requirements.txt'
 
       - name: DVC Pull Data
         run: |
-          pip install "dvc[s3]"
+          pip install -r .github/requirements.txt
           dvc pull || echo "No DVC data to pull yet"
           mkdir -p data
 
@@ -93,16 +94,19 @@ jobs:
         with:
           python-version: '3.11.15'
           cache: 'pip'
+          cache-dependency-path: '.github/requirements.txt'
 
       - name: Install KFP dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install "kfp>=2.0,<3.0" requests
+          pip install -r .github/requirements.txt
 
       - name: Compile & Submit Kubeflow Pipeline
         env:
           KFP_HOST: "http://ml-pipeline.kubeflow.svc.cluster.local:8888"
-          TRAINER_IMAGE: ${{ needs.build-and-push.outputs.image_tag }}
           MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
           MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
-        run: python run_pipeline.py
+        run: |
+          SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
+          export TRAINER_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/mlops-stock-trainer:sha-${SHA_SHORT}"
+          python run_pipeline.py
