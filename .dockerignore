@@ -31,8 +31,6 @@ var/
 venv/
 ENV/
 
-data/
-*.csv
 *.json
 *.sqlite
 logs/
