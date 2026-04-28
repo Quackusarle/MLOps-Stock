@@ -1,0 +1,7 @@
+[core]
+    remote = myminio
+['remote "myminio"']
+    url = s3://dvc-storage
+    endpointurl = http://minio-svc.mlops-infra.svc.cluster.local:9000
+    access_key_id = minioadmin
+    secret_access_key = nammoadidaphat
