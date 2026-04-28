@@ -10,6 +10,10 @@ on:
       - 'run_pipeline.py'
       - 'Dockerfile.training'
       - 'requirements.txt'
+  workflow_run:
+    workflows: ["2. Data Ingestion & DVC Push"]
+    types:
+      - completed
   workflow_dispatch:
 
 env:
@@ -45,6 +49,11 @@ jobs:
           echo "sha_tag=${SHA_TAG}" >> $GITHUB_OUTPUT
           echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
           echo "Will build: ${LATEST_TAG} and ${SHA_TAG}"
+
+      - name: Set up Python for DVC
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.15'
 
       - name: DVC Pull Data
         run: |
