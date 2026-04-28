@@ -23,6 +23,8 @@ jobs:
   build-and-push:
     name: Build & Push Trainer Image
     runs-on: [self-hosted, k3s, mlops]
+    outputs:
+      image_tag: ${{ steps.meta.outputs.sha_tag }}
 
     steps:
       - name: Checkout Code
@@ -100,7 +102,7 @@ jobs:
       - name: Compile & Submit Kubeflow Pipeline
         env:
           KFP_HOST: "http://ml-pipeline.kubeflow.svc.cluster.local:8888"
-          TRAINER_IMAGE: "${{ secrets.DOCKERHUB_USERNAME }}/mlops-stock-trainer:latest"
+          TRAINER_IMAGE: ${{ needs.build-and-push.outputs.image_tag }}
           MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
           MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
         run: python run_pipeline.py

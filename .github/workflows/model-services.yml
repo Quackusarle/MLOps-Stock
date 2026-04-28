@@ -117,7 +117,6 @@ jobs:
         if: ${{ matrix.should_build == 'true' }}
         uses: docker/build-push-action@v5
         with:
-          # Build luôn từ root vì Dockerfile dùng COPY src/, COPY models/
           context: .
           file: ./services/${{ matrix.service }}/Dockerfile
           push: true

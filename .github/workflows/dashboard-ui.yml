@@ -44,8 +44,7 @@ jobs:
       - name: Build & Push Dashboard Image
         uses: docker/build-push-action@v5
         with:
-          # Dashboard Dockerfile dùng COPY requirements.txt từ root nên cần build từ root
-          context: .
+          context: ./services/dashboard_ui
           file: ./services/dashboard_ui/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}

@@ -41,8 +41,8 @@ jobs:
           dvc init || true
           dvc remote add -d myminio s3://dvc-storage || true
           dvc remote modify myminio endpointurl http://minio-svc.mlops-infra.svc.cluster.local:9000
-          dvc remote modify myminio access_key_id ${{ secrets.MINIO_ACCESS_KEY }}
-          dvc remote modify myminio secret_access_key ${{ secrets.MINIO_SECRET_KEY }}
+          dvc remote modify --local myminio access_key_id ${{ secrets.MINIO_ACCESS_KEY }}
+          dvc remote modify --local myminio secret_access_key ${{ secrets.MINIO_SECRET_KEY }}
 
       - name: Đẩy Data nặng lên MinIO
         run: |
