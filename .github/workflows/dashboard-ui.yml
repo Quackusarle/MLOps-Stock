@@ -1,4 +1,4 @@
-name: "3. Dashboard UI Pipeline"
+name: "3. Dashboard UI & Services"
 
 on:
   push:

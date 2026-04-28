@@ -1,4 +1,4 @@
-name: "1. Training Pipeline"
+name: "2. Model Training Pipeline"
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
       - 'Dockerfile.training'
       - 'requirements.txt'
   workflow_run:
-    workflows: ["2. Data Ingestion & DVC Push"]
+    workflows: ["1. Data Ingestion & Versioning"]
     types:
       - completed
   workflow_dispatch:
@@ -59,6 +59,7 @@ jobs:
         run: |
           pip install "dvc[s3]"
           dvc pull || echo "No DVC data to pull yet"
+          mkdir -p data
 
       - name: Build & Push Docker Image
         uses: docker/build-push-action@v5
@@ -99,4 +100,6 @@ jobs:
         env:
           KFP_HOST: "http://ml-pipeline.kubeflow.svc.cluster.local:8888"
           TRAINER_IMAGE: "${{ secrets.DOCKERHUB_USERNAME }}/mlops-stock-trainer:latest"
+          MINIO_ACCESS_KEY: ${{ secrets.MINIO_ACCESS_KEY }}
+          MINIO_SECRET_KEY: ${{ secrets.MINIO_SECRET_KEY }}
         run: python run_pipeline.py

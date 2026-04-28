@@ -1,4 +1,4 @@
-name: "2. Model Services Pipeline"
+name: "4. Model Services Pipeline"
 
 on:
   push:
