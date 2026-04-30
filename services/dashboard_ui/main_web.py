@@ -16,7 +16,7 @@ ENSEMBLE_API_URL = os.getenv("ENSEMBLE_API_URL", "http://localhost:8080/predict/
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request, "predictions": {}, "error": None})
+    return templates.TemplateResponse(request=request, name="index.html", context={"request": request, "predictions": {}, "error": None})
 
 @app.get("/predict", response_class=HTMLResponse)
 async def predict(request: Request, ticker: str):
@@ -41,19 +41,21 @@ async def predict(request: Request, ticker: str):
              }
          }
          
-         return templates.TemplateResponse("index.html", {
+         return templates.TemplateResponse(request=request, name="index.html", context={
              "request": request,
              "predictions": predictions,
              "error": None
          })
     except httpx.HTTPStatusError as e:
-         return templates.TemplateResponse("index.html", {
+         return templates.TemplateResponse(request=request, name="index.html", context={
              "request": request,
              "predictions": {},
              "error": f"Lỗi từ máy chủ API: {e.response.json().get('detail', str(e))}"
          })
     except Exception as e:
-         return templates.TemplateResponse("index.html", {
+         import traceback
+         traceback.print_exc()
+         return templates.TemplateResponse(request=request, name="index.html", context={
              "request": request,
              "predictions": {},
              "error": f"Không thể kết nối đến Máy chủ API: {str(e)}"
