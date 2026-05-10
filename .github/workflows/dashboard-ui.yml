@@ -70,7 +70,7 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           cache: false
-          cache-dir: /home/runner/.cache/trivy
+          cache-dir: /tmp/trivy-cache
           input: '/tmp/dashboard.tar'
           format: 'table'
           severity: 'CRITICAL'
@@ -81,7 +81,7 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           cache: false
-          cache-dir: /home/runner/.cache/trivy
+          cache-dir: /tmp/trivy-cache
           input: '/tmp/dashboard.tar'
           format: 'sarif'
           output: 'trivy-dashboard.sarif'

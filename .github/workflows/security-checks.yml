@@ -87,7 +87,7 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           cache: false
-          cache-dir: /home/runner/.cache/trivy
+          cache-dir: /tmp/trivy-cache
           scan-type: 'fs'
           scan-ref: '.'
           format: 'table'
@@ -99,7 +99,7 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with:
           cache: false
-          cache-dir: /home/runner/.cache/trivy
+          cache-dir: /tmp/trivy-cache
           scan-type: 'fs'
           scan-ref: '.'
           format: 'sarif'
