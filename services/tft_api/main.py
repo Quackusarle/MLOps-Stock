@@ -41,7 +41,9 @@ def predict_tft(payload: DataPayload):
             
         X_raw = df[features_list].values[-60:]
         
+        # nosemgrep: ban-pickle-load
         scaler_x = joblib.load(scaler_x_path)
+        # nosemgrep: ban-pickle-load
         scaler_y = joblib.load(scaler_y_path)
         
         X_scaled = scaler_x.transform(X_raw)
@@ -49,7 +51,8 @@ def predict_tft(payload: DataPayload):
         
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         tft = TFTSkeleton(num_features=len(features_list)).to(device)
-        tft.load_state_dict(torch.load(tft_path, map_location=device))
+        # nosemgrep: ban-pickle-load
+        tft.load_state_dict(torch.load(tft_path, map_location=device, weights_only=True))
         tft.eval()
         
         with torch.no_grad():

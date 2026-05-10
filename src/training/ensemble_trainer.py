@@ -34,6 +34,7 @@ class EnsembleDataset(Dataset):
         )
 
 def train_ensemble(symbol="FPT", epochs=50, window_size=60):
+    # nosemgrep: hardcoded-password-assignment
     MODELS_DIR = "./models"
     os.makedirs(MODELS_DIR, exist_ok=True)
     

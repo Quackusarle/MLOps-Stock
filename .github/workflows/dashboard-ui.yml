@@ -67,7 +67,7 @@ jobs:
 
       # Step 2: Trivy quet file tar tai local
       - name: "Trivy Image Scan"
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@master
         with:
           input: '/tmp/dashboard.tar'
           format: 'table'
@@ -76,7 +76,7 @@ jobs:
 
       - name: "Trivy SARIF Report"
         if: always()
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@master
         with:
           input: '/tmp/dashboard.tar'
           format: 'sarif'

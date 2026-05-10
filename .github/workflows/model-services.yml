@@ -124,7 +124,7 @@ jobs:
       # Step 2: Trivy quet file tar tai local
       - name: Trivy Image Scan - ${{ matrix.service }}
         if: ${{ matrix.should_build == 'true' }}
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@master
         with:
           input: '/tmp/${{ matrix.service }}.tar'
           format: 'table'
@@ -133,7 +133,7 @@ jobs:
 
       - name: Trivy SARIF Report - ${{ matrix.service }}
         if: ${{ matrix.should_build == 'true' && always() }}
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@master
         with:
           input: '/tmp/${{ matrix.service }}.tar'
           format: 'sarif'
