@@ -9,6 +9,10 @@ concurrency:
   group: dev-analysis-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   security-checks:
     name: "Run Security Checks"

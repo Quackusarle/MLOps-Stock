@@ -4,6 +4,10 @@ on:
   pull_request:
     branches: [main, dev]
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   security-checks:
     name: "PR Checks"
