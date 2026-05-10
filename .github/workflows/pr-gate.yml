@@ -1,0 +1,11 @@
+name: "PR Security Gate"
+
+on:
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  security-checks:
+    name: "PR Checks"
+    uses: ./.github/workflows/security-checks.yml
+    secrets: inherit

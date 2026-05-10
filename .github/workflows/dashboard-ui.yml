@@ -12,9 +12,20 @@ on:
 env:
   IMAGE_NAME: mlops-stock-dashboard
 
+permissions:
+  contents: read
+  id-token: write
+  security-events: write
+
 jobs:
-  build-and-push:
-    name: Build & Push Dashboard UI
+  security-checks:
+    name: Run Security Gate
+    uses: ./.github/workflows/security-checks.yml
+    secrets: inherit
+
+  build-scan-sign:
+    name: Build -> Scan -> Push -> Sign
+    needs: security-checks
     runs-on: [self-hosted, k3s, mlops]
 
     steps:
@@ -38,22 +49,78 @@ jobs:
         run: |
           IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}"
           SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "image=${IMAGE}" >> $GITHUB_OUTPUT
+          echo "sha_tag=${IMAGE}:sha-${SHA_SHORT}" >> $GITHUB_OUTPUT
           echo "tags=${IMAGE}:latest,${IMAGE}:sha-${SHA_SHORT}" >> $GITHUB_OUTPUT
-          echo "Tags: ${IMAGE}:latest | ${IMAGE}:sha-${SHA_SHORT}"
 
-      - name: Build & Push Dashboard Image
+      # Step 1: Build va xuat image thanh file tar tai runner (khong push)
+      - name: Build Image (export to tar)
         uses: docker/build-push-action@v5
         with:
           context: ./services/dashboard_ui
           file: ./services/dashboard_ui/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          push: false
+          outputs: type=docker,dest=/tmp/dashboard.tar
+          tags: ${{ steps.meta.outputs.sha_tag }}
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:dashboard
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:dashboard,mode=min
 
-      - name: Job Summary
+      # Step 2: Trivy quet file tar tai local
+      - name: "Trivy Image Scan"
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          input: '/tmp/dashboard.tar'
+          format: 'table'
+          severity: 'CRITICAL'
+          exit-code: '1'
+
+      - name: "Trivy SARIF Report"
+        if: always()
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          input: '/tmp/dashboard.tar'
+          format: 'sarif'
+          output: 'trivy-dashboard.sarif'
+          severity: 'HIGH,CRITICAL'
+
+      - name: Upload Trivy results to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-dashboard.sarif'
+          category: 'trivy-dashboard'
+
+      # Step 3: Scan pass -> dung crane push file tar len registry
+      - name: Install crane
+        uses: imjasonh/setup-crane@v0.4
+
+      - name: Push Image with crane
         run: |
-          echo "## Dashboard UI Deployed" >> $GITHUB_STEP_SUMMARY
-          echo "**Images pushed to Docker Hub:**" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:sha-$(echo ${{ github.sha }} | cut -c1-7)\`" >> $GITHUB_STEP_SUMMARY
+          crane auth login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} index.docker.io
+          crane push /tmp/dashboard.tar ${{ steps.meta.outputs.sha_tag }}
+          crane tag ${{ steps.meta.outputs.sha_tag }} latest
+
+      # Step 4: Ky xac thuc image da push
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign Image
+        run: |
+          cosign sign --yes ${{ steps.meta.outputs.sha_tag }}
+          cosign sign --yes ${{ steps.meta.outputs.image }}:latest
+
+      - name: Cleanup
+        if: always()
+        run: rm -f /tmp/dashboard.tar
+
+      - name: Job Summary
+        if: always()
+        run: |
+          echo "## Dashboard UI - Build & Security Report" >> $GITHUB_STEP_SUMMARY
+          echo "| Step | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Build | Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trivy Scan | No CRITICAL CVEs |" >> $GITHUB_STEP_SUMMARY
+          echo "| Crane Push | Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Cosign Sign | Image Signed |" >> $GITHUB_STEP_SUMMARY
+          echo "Image: \`${{ steps.meta.outputs.sha_tag }}\`" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,53 @@
+name: "Dev Branch - Full Analysis"
+
+on:
+  push:
+    branches:
+      - dev
+
+concurrency:
+  group: dev-analysis-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security-checks:
+    name: "Run Security Checks"
+    uses: ./.github/workflows/security-checks.yml
+    secrets: inherit
+
+  sonarqube-analysis:
+    name: "SonarQube Scan"
+    needs: security-checks
+    runs-on: [self-hosted, k3s, mlops]
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Coverage
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-report
+          path: .
+
+      - name: Install and Run SonarQube Scanner
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: |
+          echo "Downloading SonarScanner CLI..."
+          wget -qO- https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip > sonar-scanner.zip
+          unzip -q sonar-scanner.zip
+          export PATH=$PATH:$PWD/sonar-scanner-5.0.1.3006-linux/bin
+          
+          echo "Running SonarScanner..."
+          sonar-scanner \
+            -Dsonar.host.url="${SONAR_HOST_URL}" \
+            -Dsonar.login="${SONAR_TOKEN}"
+
+      - name: Post Summary
+        run: |
+          echo "## Dev Branch Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "SonarQube scan completed." >> $GITHUB_STEP_SUMMARY

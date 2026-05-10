@@ -2,31 +2,30 @@ name: "4. Model Services Pipeline"
 
 on:
   push:
-    branches:
-      - main
-    paths:
-      - 'services/lgbm_api/**'
-      - 'services/tft_api/**'
-      - 'services/ensemble_api/**'
-      - 'services/data_api/**'
-      - 'src/**'
-      - 'requirements.txt'
+    branches: [main]
+    paths: ['services/lgbm_api/**', 'services/tft_api/**', 'services/ensemble_api/**', 'services/data_api/**', 'src/**', 'requirements.txt']
   workflow_dispatch:
     inputs:
       service:
-        description: 'Service cụ thể cần build (để trống = build tất cả)'
+        description: 'Service to build (empty = build all)'
         required: false
         type: choice
-        options:
-          - ''
-          - lgbm_api
-          - tft_api
-          - ensemble_api
-          - data_api
+        options: ['', lgbm_api, tft_api, ensemble_api, data_api]
+
+permissions:
+  contents: read
+  id-token: write
+  security-events: write
 
 jobs:
+  security-checks:
+    name: Run Security Gate
+    uses: ./.github/workflows/security-checks.yml
+    secrets: inherit
+
   detect-changes:
     name: Detect Changed Services
+    needs: security-checks
     runs-on: [self-hosted, k3s, mlops]
     outputs:
       lgbm_api: ${{ steps.filter.outputs.lgbm_api }}
@@ -34,11 +33,8 @@ jobs:
       ensemble_api: ${{ steps.filter.outputs.ensemble_api }}
       data_api: ${{ steps.filter.outputs.data_api }}
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Detect changed paths
-        uses: dorny/paths-filter@v3
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
         id: filter
         with:
           filters: |
@@ -59,11 +55,10 @@ jobs:
               - 'src/**'
               - 'requirements.txt'
 
-  build-and-push:
-    name: Build ${{ matrix.service }}
+  build-scan-push:
+    name: Build -> Scan -> Push -> Sign ${{ matrix.service }}
     runs-on: [self-hosted, k3s, mlops]
     needs: detect-changes
-
     strategy:
       fail-fast: false
       matrix:
@@ -84,13 +79,13 @@ jobs:
     steps:
       - name: Skip check
         if: ${{ matrix.should_build != 'true' }}
-        run: echo "⏭Skipping ${{ matrix.service }} — no changes detected"
+        run: echo "Skipping ${{ matrix.service }} - no changes detected"
 
       - name: Checkout Code
         if: ${{ matrix.should_build == 'true' }}
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx (remote BuildKit)
+      - name: Set up Docker Buildx
         if: ${{ matrix.should_build == 'true' }}
         uses: docker/setup-buildx-action@v3
         with:
@@ -110,20 +105,71 @@ jobs:
         run: |
           IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/mlops-stock-${{ matrix.image_suffix }}"
           SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
-          echo "tags=${IMAGE}:latest,${IMAGE}:sha-${SHA_SHORT}" >> $GITHUB_OUTPUT
-          echo "Tags: ${IMAGE}:latest | ${IMAGE}:sha-${SHA_SHORT}"
+          echo "image=${IMAGE}" >> $GITHUB_OUTPUT
+          echo "sha_tag=${IMAGE}:sha-${SHA_SHORT}" >> $GITHUB_OUTPUT
 
-      - name: Build & Push ${{ matrix.service }}
+      # Step 1: Build va xuat thanh tar tai runner
+      - name: Build ${{ matrix.service }} (export to tar)
         if: ${{ matrix.should_build == 'true' }}
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./services/${{ matrix.service }}/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          push: false
+          outputs: type=docker,dest=/tmp/${{ matrix.service }}.tar
+          tags: ${{ steps.meta.outputs.sha_tag }}
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:${{ matrix.service }}
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:${{ matrix.service }},mode=min
 
-      - name: Summary
+      # Step 2: Trivy quet file tar tai local
+      - name: Trivy Image Scan - ${{ matrix.service }}
         if: ${{ matrix.should_build == 'true' }}
-        run: echo "Successfully built and pushed ${{ matrix.service }}"
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          input: '/tmp/${{ matrix.service }}.tar'
+          format: 'table'
+          severity: 'CRITICAL'
+          exit-code: '1'
+
+      - name: Trivy SARIF Report - ${{ matrix.service }}
+        if: ${{ matrix.should_build == 'true' && always() }}
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          input: '/tmp/${{ matrix.service }}.tar'
+          format: 'sarif'
+          output: 'trivy-${{ matrix.service }}.sarif'
+          severity: 'HIGH,CRITICAL'
+
+      - name: Upload Trivy SARIF
+        if: ${{ matrix.should_build == 'true' && always() }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-${{ matrix.service }}.sarif'
+          category: 'trivy-${{ matrix.service }}'
+
+      # Step 3: Scan pass -> crane push len registry
+      - name: Install crane
+        if: ${{ matrix.should_build == 'true' }}
+        uses: imjasonh/setup-crane@v0.4
+
+      - name: Push with crane
+        if: ${{ matrix.should_build == 'true' }}
+        run: |
+          crane auth login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} index.docker.io
+          crane push /tmp/${{ matrix.service }}.tar ${{ steps.meta.outputs.sha_tag }}
+          crane tag ${{ steps.meta.outputs.sha_tag }} latest
+
+      # Step 4: Cosign sign
+      - name: Install Cosign
+        if: ${{ matrix.should_build == 'true' }}
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign ${{ matrix.service }} image
+        if: ${{ matrix.should_build == 'true' }}
+        run: |
+          cosign sign --yes ${{ steps.meta.outputs.sha_tag }}
+          cosign sign --yes ${{ steps.meta.outputs.image }}:latest
+
+      - name: Cleanup
+        if: always()
+        run: rm -f /tmp/${{ matrix.service }}.tar
