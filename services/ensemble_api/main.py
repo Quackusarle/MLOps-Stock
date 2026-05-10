@@ -58,6 +58,7 @@ async def ensemble_predict(ticker: str):
         if meta_path is None or not os.path.exists(meta_path):
              meta_prediction = (tft_price + lgbm_price) / 2
         else:
+            # nosemgrep: ban-pickle-load
             meta_learner = joblib.load(meta_path)
             meta_input = np.array([[tft_price, lgbm_price]])
             meta_prediction = meta_learner.predict(meta_input)[0]

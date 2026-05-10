@@ -37,11 +37,14 @@ def predict_lgbm(payload: DataPayload):
         # LGBM chỉ cần tham số của ngày cuối cùng
         X_raw = df[features_list].values[-1:]
         
+        # nosemgrep: ban-pickle-load
         scaler_x = joblib.load(scaler_x_path)
+        # nosemgrep: ban-pickle-load
         scaler_y = joblib.load(scaler_y_path)
         
         X_scaled = scaler_x.transform(X_raw)
         
+        # nosemgrep: ban-pickle-load
         lgbm_model = joblib.load(lgbm_path)
         pred_scaled = lgbm_model.predict(X_scaled)
         

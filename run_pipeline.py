@@ -4,6 +4,7 @@ from kfp_pipeline import stock_training_pipeline
 
 def compile_and_submit():
     # 1. Compile pipeline
+    # nosemgrep: hardcoded-password-assignment
     package_path = 'pipeline.yaml'
     kfp.compiler.Compiler().compile(
         pipeline_func=stock_training_pipeline,
@@ -19,6 +20,7 @@ def compile_and_submit():
         client = kfp.Client(host=kfp_host)
         
         # 4. Submit pipeline run
+        # nosemgrep: hardcoded-password-assignment
         experiment_name = 'Stock Prediction Automations'
         import time
         run_name = f'ARC_Triggered_Run_{int(time.time())}'

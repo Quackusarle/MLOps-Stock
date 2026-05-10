@@ -59,13 +59,19 @@ def build_decision(
     confidence = _clamp(0.55 * agreement + 0.45 * edge_score, 0.0, 1.0)
 
     if effective_edge_pct > dynamic_hold_band:
+        # nosemgrep: hardcoded-password-assignment
         action = "BUY"
+        # nosemgrep: hardcoded-password-assignment
         reason = "Positive expected edge after costs and uncertainty adjustment"
     elif effective_edge_pct < -dynamic_hold_band:
+        # nosemgrep: hardcoded-password-assignment
         action = "SELL"
+        # nosemgrep: hardcoded-password-assignment
         reason = "Negative expected edge after costs and uncertainty adjustment"
     else:
+        # nosemgrep: hardcoded-password-assignment
         action = "HOLD"
+        # nosemgrep: hardcoded-password-assignment
         reason = "Signal is inside hold band or too uncertain"
 
     return DecisionResult(
