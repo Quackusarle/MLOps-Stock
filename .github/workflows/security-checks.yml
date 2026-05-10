@@ -48,7 +48,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
+
 
       - name: Install Semgrep
         run: pip install semgrep
@@ -86,6 +86,8 @@ jobs:
       - name: Run Trivy Filesystem Scan
         uses: aquasecurity/trivy-action@master
         with:
+          cache: false
+          cache-dir: /home/runner/.cache/trivy
           scan-type: 'fs'
           scan-ref: '.'
           format: 'table'
@@ -96,6 +98,8 @@ jobs:
         if: always()
         uses: aquasecurity/trivy-action@master
         with:
+          cache: false
+          cache-dir: /home/runner/.cache/trivy
           scan-type: 'fs'
           scan-ref: '.'
           format: 'sarif'
@@ -119,7 +123,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
+
 
       - name: Install dependencies
         run: |

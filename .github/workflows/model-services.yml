@@ -126,6 +126,8 @@ jobs:
         if: ${{ matrix.should_build == 'true' }}
         uses: aquasecurity/trivy-action@master
         with:
+          cache: false
+          cache-dir: /home/runner/.cache/trivy
           input: '/tmp/${{ matrix.service }}.tar'
           format: 'table'
           severity: 'CRITICAL'
@@ -135,6 +137,8 @@ jobs:
         if: ${{ matrix.should_build == 'true' && always() }}
         uses: aquasecurity/trivy-action@master
         with:
+          cache: false
+          cache-dir: /home/runner/.cache/trivy
           input: '/tmp/${{ matrix.service }}.tar'
           format: 'sarif'
           output: 'trivy-${{ matrix.service }}.sarif'

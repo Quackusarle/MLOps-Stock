@@ -69,6 +69,8 @@ jobs:
       - name: "Trivy Image Scan"
         uses: aquasecurity/trivy-action@master
         with:
+          cache: false
+          cache-dir: /home/runner/.cache/trivy
           input: '/tmp/dashboard.tar'
           format: 'table'
           severity: 'CRITICAL'
@@ -78,6 +80,8 @@ jobs:
         if: always()
         uses: aquasecurity/trivy-action@master
         with:
+          cache: false
+          cache-dir: /home/runner/.cache/trivy
           input: '/tmp/dashboard.tar'
           format: 'sarif'
           output: 'trivy-dashboard.sarif'
