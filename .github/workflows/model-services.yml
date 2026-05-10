@@ -24,9 +24,20 @@ on:
           - ensemble_api
           - data_api
 
+permissions:
+  contents: read
+  id-token: write
+  security-events: write
+
 jobs:
+  security-checks:
+    name: Run Security Gate
+    uses: ./.github/workflows/security-gate.yml
+    secrets: inherit
+
   detect-changes:
     name: Detect Changed Services
+    needs: security-checks
     runs-on: [self-hosted, k3s, mlops]
     outputs:
       lgbm_api: ${{ steps.filter.outputs.lgbm_api }}
@@ -59,8 +70,8 @@ jobs:
               - 'src/**'
               - 'requirements.txt'
 
-  build-and-push:
-    name: Build ${{ matrix.service }}
+  build-scan-push:
+    name: Build -> Scan -> Push ${{ matrix.service }}
     runs-on: [self-hosted, k3s, mlops]
     needs: detect-changes
 
@@ -84,7 +95,7 @@ jobs:
     steps:
       - name: Skip check
         if: ${{ matrix.should_build != 'true' }}
-        run: echo "⏭Skipping ${{ matrix.service }} — no changes detected"
+        run: echo "Skipping ${{ matrix.service }} - no changes detected"
 
       - name: Checkout Code
         if: ${{ matrix.should_build == 'true' }}
@@ -110,20 +121,85 @@ jobs:
         run: |
           IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/mlops-stock-${{ matrix.image_suffix }}"
           SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "image=${IMAGE}" >> $GITHUB_OUTPUT
+          echo "sha_tag=${IMAGE}:sha-${SHA_SHORT}" >> $GITHUB_OUTPUT
           echo "tags=${IMAGE}:latest,${IMAGE}:sha-${SHA_SHORT}" >> $GITHUB_OUTPUT
           echo "Tags: ${IMAGE}:latest | ${IMAGE}:sha-${SHA_SHORT}"
 
-      - name: Build & Push ${{ matrix.service }}
+      # ── Step 1: Build Image (Chỉ lưu ở local) ───────────────────────────
+      - name: Build ${{ matrix.service }}
         if: ${{ matrix.should_build == 'true' }}
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./services/${{ matrix.service }}/Dockerfile
-          push: true
+          push: false
+          load: true
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:${{ matrix.service }}
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:${{ matrix.service }},mode=min
 
-      - name: Summary
+      # ── Step 2: Trivy Container Scan ────────────────────────────────────
+      # Quét image vừa push tìm CVE trong OS packages và Python libraries.
+      # Policy: Chặn nếu có lỗ hổng CRITICAL. HIGH chỉ cảnh báo.
+      - name: "Trivy Image Scan - ${{ matrix.service }}"
         if: ${{ matrix.should_build == 'true' }}
-        run: echo "Successfully built and pushed ${{ matrix.service }}"
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.meta.outputs.sha_tag }}
+          format: 'table'
+          severity: 'CRITICAL'
+          exit-code: '1'
+
+      - name: "Trivy SARIF Report - ${{ matrix.service }}"
+        if: ${{ matrix.should_build == 'true' && always() }}
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.meta.outputs.sha_tag }}
+          format: 'sarif'
+          output: 'trivy-${{ matrix.service }}.sarif'
+          severity: 'HIGH,CRITICAL'
+
+      - name: Upload Trivy results to GitHub Security
+        if: ${{ matrix.should_build == 'true' && always() }}
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-${{ matrix.service }}.sarif'
+          category: 'trivy-${{ matrix.service }}'
+
+      # ── Step 3: Push Image (Sau khi scan pass) ──────────────────────────
+      - name: Push Image
+        if: ${{ matrix.should_build == 'true' }}
+        run: |
+          docker push ${{ steps.meta.outputs.sha_tag }}
+          docker push ${{ steps.meta.outputs.image }}:latest
+
+      # ── Step 3: Cosign Image Signing ────────────────────────────────────
+      # Ký điện tử image bằng Cosign (keyless via Sigstore/Fulcio).
+      # K3s + Kyverno sẽ xác minh chữ ký này trước khi cho phép tạo Pod.
+      - name: "Sign Image with Cosign - ${{ matrix.service }}"
+        if: ${{ matrix.should_build == 'true' }}
+        uses: sigstore/cosign-installer@v3
+
+      - name: "Sign pushed image"
+        if: ${{ matrix.should_build == 'true' }}
+        env:
+          COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
+        run: |
+          echo "Signing image: ${{ steps.meta.outputs.sha_tag }}"
+          # Keyless signing (dùng OIDC từ GitHub Actions)
+          cosign sign --yes ${{ steps.meta.outputs.sha_tag }}
+          cosign sign --yes ${{ steps.meta.outputs.image }}:latest
+          echo "Image signed successfully"
+
+      # ── Summary ─────────────────────────────────────────────────────────
+      - name: "Pipeline Summary"
+        if: ${{ matrix.should_build == 'true' }}
+        run: |
+          echo "## ${{ matrix.service }} - Build & Security Report" >> $GITHUB_STEP_SUMMARY
+          echo "| Step | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Build | Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trivy Scan | No CRITICAL CVEs |" >> $GITHUB_STEP_SUMMARY
+          echo "| Cosign Sign | Image Signed |" >> $GITHUB_STEP_SUMMARY
+          echo "Image: \`${{ steps.meta.outputs.sha_tag }}\`" >> $GITHUB_STEP_SUMMARY

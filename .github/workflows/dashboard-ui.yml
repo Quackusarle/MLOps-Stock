@@ -12,9 +12,20 @@ on:
 env:
   IMAGE_NAME: mlops-stock-dashboard
 
+permissions:
+  contents: read
+  id-token: write
+  security-events: write
+
 jobs:
+  security-checks:
+    name: Run Security Gate
+    uses: ./.github/workflows/security-gate.yml
+    secrets: inherit
+
   build-and-push:
     name: Build & Push Dashboard UI
+    needs: security-checks
     runs-on: [self-hosted, k3s, mlops]
 
     steps:
@@ -38,22 +49,69 @@ jobs:
         run: |
           IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}"
           SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "image=${IMAGE}" >> $GITHUB_OUTPUT
+          echo "sha_tag=${IMAGE}:sha-${SHA_SHORT}" >> $GITHUB_OUTPUT
           echo "tags=${IMAGE}:latest,${IMAGE}:sha-${SHA_SHORT}" >> $GITHUB_OUTPUT
           echo "Tags: ${IMAGE}:latest | ${IMAGE}:sha-${SHA_SHORT}"
 
-      - name: Build & Push Dashboard Image
+      - name: Build Dashboard Image
         uses: docker/build-push-action@v5
         with:
           context: ./services/dashboard_ui
           file: ./services/dashboard_ui/Dockerfile
-          push: true
+          push: false
+          load: true
           tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:dashboard
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:dashboard,mode=min
 
+      # ── Trivy Container Scan ────────────────────────────────────────────
+      - name: "Trivy Image Scan - Dashboard"
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.meta.outputs.sha_tag }}
+          format: 'table'
+          severity: 'CRITICAL'
+          exit-code: '1'
+
+      - name: "Trivy SARIF Report - Dashboard"
+        if: always()
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.meta.outputs.sha_tag }}
+          format: 'sarif'
+          output: 'trivy-dashboard.sarif'
+          severity: 'HIGH,CRITICAL'
+
+      - name: Upload Trivy results to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-dashboard.sarif'
+          category: 'trivy-dashboard'
+
+      - name: Push Dashboard Image
+        run: |
+          docker push ${{ steps.meta.outputs.sha_tag }}
+          docker push ${{ steps.meta.outputs.image }}:latest
+
+      # ── Cosign Image Signing ────────────────────────────────────────────
+      - name: "Install Cosign"
+        uses: sigstore/cosign-installer@v3
+
+      - name: "Sign Dashboard Image"
+        run: |
+          cosign sign --yes ${{ steps.meta.outputs.sha_tag }}
+          cosign sign --yes ${{ steps.meta.outputs.image }}:latest
+          echo "Dashboard image signed successfully"
+
       - name: Job Summary
         run: |
-          echo "## Dashboard UI Deployed" >> $GITHUB_STEP_SUMMARY
-          echo "**Images pushed to Docker Hub:**" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:sha-$(echo ${{ github.sha }} | cut -c1-7)\`" >> $GITHUB_STEP_SUMMARY
+          echo "## Dashboard UI - Build & Security Report" >> $GITHUB_STEP_SUMMARY
+          echo "| Step | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Build | Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trivy Scan | No CRITICAL CVEs |" >> $GITHUB_STEP_SUMMARY
+          echo "| Cosign Sign | Image Signed |" >> $GITHUB_STEP_SUMMARY
+          echo "Image: \`${{ steps.meta.outputs.sha_tag }}\`" >> $GITHUB_STEP_SUMMARY
+

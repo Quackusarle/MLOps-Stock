@@ -19,9 +19,20 @@ on:
 env:
   IMAGE_NAME: mlops-stock-trainer
 
+permissions:
+  contents: read
+  id-token: write
+  security-events: write
+
 jobs:
+  security-checks:
+    name: Run Security Gate
+    uses: ./.github/workflows/security-gate.yml
+    secrets: inherit
+
   build-and-push:
     name: Build & Push Trainer Image
+    needs: security-checks
     runs-on: [self-hosted, k3s, mlops]
     outputs:
       image_tag: ${{ steps.meta.outputs.sha_tag }}
@@ -48,6 +59,7 @@ jobs:
           IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}"
           SHA_TAG="${IMAGE}:sha-$(echo ${{ github.sha }} | cut -c1-7)"
           LATEST_TAG="${IMAGE}:latest"
+          echo "image=${IMAGE}" >> $GITHUB_OUTPUT
           echo "sha_tag=${SHA_TAG}" >> $GITHUB_OUTPUT
           echo "latest_tag=${LATEST_TAG}" >> $GITHUB_OUTPUT
           echo "Will build: ${LATEST_TAG} and ${SHA_TAG}"
@@ -65,17 +77,60 @@ jobs:
           dvc pull || echo "No DVC data to pull yet"
           mkdir -p data
 
-      - name: Build & Push Docker Image
+      - name: Build Docker Image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile.training
-          push: true
+          push: false
+          load: true
           tags: |
             ${{ steps.meta.outputs.latest_tag }}
             ${{ steps.meta.outputs.sha_tag }}
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:trainer
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:trainer,mode=min
+
+      # ── Trivy Container Scan ────────────────────────────────────────────
+      # Quét training image tìm CVE. Image này chứa nhiều thư viện ML
+      # (torch, lightgbm, scipy) nên khả năng có CVE cao.
+      - name: "Trivy Image Scan - Trainer"
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.meta.outputs.sha_tag }}
+          format: 'table'
+          severity: 'CRITICAL'
+          exit-code: '1'
+
+      - name: "Trivy SARIF Report - Trainer"
+        if: always()
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ steps.meta.outputs.sha_tag }}
+          format: 'sarif'
+          output: 'trivy-trainer.sarif'
+          severity: 'HIGH,CRITICAL'
+
+      - name: Upload Trivy results to GitHub Security
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: 'trivy-trainer.sarif'
+          category: 'trivy-trainer'
+
+      - name: Push Docker Image
+        run: |
+          docker push ${{ steps.meta.outputs.latest_tag }}
+          docker push ${{ steps.meta.outputs.sha_tag }}
+
+      # ── Cosign Image Signing ────────────────────────────────────────────
+      - name: "Install Cosign"
+        uses: sigstore/cosign-installer@v3
+
+      - name: "Sign Trainer Image"
+        run: |
+          cosign sign --yes ${{ steps.meta.outputs.sha_tag }}
+          cosign sign --yes ${{ steps.meta.outputs.latest_tag }}
+          echo "Trainer image signed successfully"
 
       - name: Set trainer image env for next step
         run: echo "TRAINER_IMAGE=${{ steps.meta.outputs.latest_tag }}" >> $GITHUB_ENV
@@ -110,3 +165,14 @@ jobs:
           SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
           export TRAINER_IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/mlops-stock-trainer:sha-${SHA_SHORT}"
           python run_pipeline.py
+
+      - name: "Training Pipeline Summary"
+        run: |
+          echo "## Training Pipeline - Security Report" >> $GITHUB_STEP_SUMMARY
+          echo "| Step | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Docker Build | Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trivy Scan | No CRITICAL CVEs |" >> $GITHUB_STEP_SUMMARY
+          echo "| Cosign Sign | Image Signed |" >> $GITHUB_STEP_SUMMARY
+          echo "| KFP Submit | Pipeline Submitted |" >> $GITHUB_STEP_SUMMARY
+

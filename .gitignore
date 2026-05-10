@@ -1,4 +1,3 @@
-# Python
 __pycache__/
 *.py[cod]
 *$py.class
@@ -10,7 +9,6 @@ ENV/
 env.bak/
 venv.bak/
 
-# Project Specific
 private_key.pem
 audit_log.jsonl
 *.pth
@@ -18,12 +16,24 @@ audit_log.jsonl
 test_results/
 .ipynb_checkpoints/
 
-# Data
 *.csv
 *.xlsx
 
-# Ignore Vietnamese code explanation files
 giang_code/
 
 models/
 /data
+
+*.sarif
+trivy-*.json
+
+semgrep-results.json
+
+coverage.xml
+htmlcov/
+.coverage
+test-results.xml
+
+cosign.key
+cosign.pub
+
