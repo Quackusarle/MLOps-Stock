@@ -20,11 +20,11 @@ permissions:
 jobs:
   security-checks:
     name: Run Security Gate
-    uses: ./.github/workflows/security-gate.yml
+    uses: ./.github/workflows/security-checks.yml
     secrets: inherit
 
-  build-and-push:
-    name: Build & Push Dashboard UI
+  build-scan-sign:
+    name: Build -> Scan -> Push -> Sign
     needs: security-checks
     runs-on: [self-hosted, k3s, mlops]
 
@@ -52,33 +52,33 @@ jobs:
           echo "image=${IMAGE}" >> $GITHUB_OUTPUT
           echo "sha_tag=${IMAGE}:sha-${SHA_SHORT}" >> $GITHUB_OUTPUT
           echo "tags=${IMAGE}:latest,${IMAGE}:sha-${SHA_SHORT}" >> $GITHUB_OUTPUT
-          echo "Tags: ${IMAGE}:latest | ${IMAGE}:sha-${SHA_SHORT}"
 
-      - name: Build Dashboard Image
+      # Step 1: Build va xuat image thanh file tar tai runner (khong push)
+      - name: Build Image (export to tar)
         uses: docker/build-push-action@v5
         with:
           context: ./services/dashboard_ui
           file: ./services/dashboard_ui/Dockerfile
           push: false
-          load: true
-          tags: ${{ steps.meta.outputs.tags }}
+          outputs: type=docker,dest=/tmp/dashboard.tar
+          tags: ${{ steps.meta.outputs.sha_tag }}
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:dashboard
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/mlops-cache:dashboard,mode=min
 
-      # ── Trivy Container Scan ────────────────────────────────────────────
-      - name: "Trivy Image Scan - Dashboard"
+      # Step 2: Trivy quet file tar tai local
+      - name: "Trivy Image Scan"
         uses: aquasecurity/trivy-action@0.28.0
         with:
-          image-ref: ${{ steps.meta.outputs.sha_tag }}
+          input: '/tmp/dashboard.tar'
           format: 'table'
           severity: 'CRITICAL'
           exit-code: '1'
 
-      - name: "Trivy SARIF Report - Dashboard"
+      - name: "Trivy SARIF Report"
         if: always()
         uses: aquasecurity/trivy-action@0.28.0
         with:
-          image-ref: ${{ steps.meta.outputs.sha_tag }}
+          input: '/tmp/dashboard.tar'
           format: 'sarif'
           output: 'trivy-dashboard.sarif'
           severity: 'HIGH,CRITICAL'
@@ -90,28 +90,37 @@ jobs:
           sarif_file: 'trivy-dashboard.sarif'
           category: 'trivy-dashboard'
 
-      - name: Push Dashboard Image
-        run: |
-          docker push ${{ steps.meta.outputs.sha_tag }}
-          docker push ${{ steps.meta.outputs.image }}:latest
+      # Step 3: Scan pass -> dung crane push file tar len registry
+      - name: Install crane
+        uses: imjasonh/setup-crane@v0.4
 
-      # ── Cosign Image Signing ────────────────────────────────────────────
-      - name: "Install Cosign"
+      - name: Push Image with crane
+        run: |
+          crane auth login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} index.docker.io
+          crane push /tmp/dashboard.tar ${{ steps.meta.outputs.sha_tag }}
+          crane tag ${{ steps.meta.outputs.sha_tag }} latest
+
+      # Step 4: Ky xac thuc image da push
+      - name: Install Cosign
         uses: sigstore/cosign-installer@v3
 
-      - name: "Sign Dashboard Image"
+      - name: Sign Image
         run: |
           cosign sign --yes ${{ steps.meta.outputs.sha_tag }}
           cosign sign --yes ${{ steps.meta.outputs.image }}:latest
-          echo "Dashboard image signed successfully"
+
+      - name: Cleanup
+        if: always()
+        run: rm -f /tmp/dashboard.tar
 
       - name: Job Summary
+        if: always()
         run: |
           echo "## Dashboard UI - Build & Security Report" >> $GITHUB_STEP_SUMMARY
           echo "| Step | Status |" >> $GITHUB_STEP_SUMMARY
           echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
           echo "| Docker Build | Passed |" >> $GITHUB_STEP_SUMMARY
           echo "| Trivy Scan | No CRITICAL CVEs |" >> $GITHUB_STEP_SUMMARY
+          echo "| Crane Push | Passed |" >> $GITHUB_STEP_SUMMARY
           echo "| Cosign Sign | Image Signed |" >> $GITHUB_STEP_SUMMARY
           echo "Image: \`${{ steps.meta.outputs.sha_tag }}\`" >> $GITHUB_STEP_SUMMARY
-

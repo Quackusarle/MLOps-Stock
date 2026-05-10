@@ -1,16 +1,8 @@
-# =============================================================================
-# Workflow 1: CI Security & Quality Gate
-# Kích hoạt khi tạo PR vào main HOẶC push vào main.
-# Chạy song song: Unit Test, SAST (Semgrep), Secret Scan (Gitleaks), SCA (Trivy)
-# =============================================================================
-name: "0. Security & Quality Gate"
+name: "0. Security Checks"
 
 on:
-  pull_request:
-    branches: [main]
   workflow_call:
 
-# Tránh chạy trùng khi vừa push PR vừa push main
 concurrency:
   group: security-${{ github.ref }}
   cancel-in-progress: true
@@ -20,10 +12,6 @@ permissions:
   security-events: write
 
 jobs:
-  # ════════════════════════════════════════════════════════════════════════════
-  # Job 1: Secret Scanning — Quét toàn bộ lịch sử commit để tìm secret bị lộ
-  # Policy: BLOCKING — Nếu phát hiện secret → Chặn merge PR ngay lập tức.
-  # ════════════════════════════════════════════════════════════════════════════
   secret-scan:
     name: "Secret Scanning (Gitleaks)"
     runs-on: [self-hosted, k3s, mlops]
@@ -31,7 +19,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # Cần full history để quét tất cả commit
+          fetch-depth: 0
 
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
@@ -39,11 +27,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml
 
-  # ════════════════════════════════════════════════════════════════════════════
-  # Job 2: SAST — Static Application Security Testing
-  # Quét mã nguồn Python tìm lỗ hổng bảo mật (injection, deserialize, v.v.)
-  # Policy: BLOCKING cho ERROR, WARNING chỉ cảnh báo.
-  # ════════════════════════════════════════════════════════════════════════════
   sast-scan:
     name: "SAST (Semgrep)"
     runs-on: [self-hosted, k3s, mlops]
@@ -56,7 +39,6 @@ jobs:
       - name: Run Semgrep with custom rules
         run: |
           echo "Running Semgrep SAST Scanner"
-          # Chạy cả custom rules (local) và community rules (registry)
           semgrep scan \
             --config .semgrep.yml \
             --config "p/python" \
@@ -77,11 +59,6 @@ jobs:
           path: semgrep-results.json
           retention-days: 30
 
-  # ════════════════════════════════════════════════════════════════════════════
-  # Job 3: SCA — Software Composition Analysis (Quét lỗ hổng Dependencies)
-  # Quét requirements.txt và filesystem tìm CVE trong thư viện bên thứ 3.
-  # Policy: AUDIT (cảnh báo) — Chỉ chặn khi phát hiện CRITICAL.
-  # ════════════════════════════════════════════════════════════════════════════
   dependency-scan:
     name: "Dependency Scan (Trivy FS)"
     runs-on: [self-hosted, k3s, mlops]
@@ -96,8 +73,6 @@ jobs:
           scan-ref: '.'
           format: 'table'
           severity: 'HIGH,CRITICAL'
-          # exit-code 1 = chặn pipeline nếu có lỗ hổng CRITICAL
-          # Đổi thành '0' trong giai đoạn Audit Mode (tháng đầu)
           exit-code: '1'
 
       - name: Trivy SARIF Report (for GitHub Security tab)
@@ -116,10 +91,6 @@ jobs:
         with:
           sarif_file: 'trivy-fs-results.sarif'
 
-  # ════════════════════════════════════════════════════════════════════════════
-  # Job 4: Unit Tests + Coverage
-  # Chạy pytest với coverage report. Fail nếu tests fail.
-  # ════════════════════════════════════════════════════════════════════════════
   unit-tests:
     name: "Unit Tests & Coverage"
     runs-on: [self-hosted, k3s, mlops]
@@ -171,10 +142,6 @@ jobs:
             echo "Code Coverage: ${COVERAGE}" >> $GITHUB_STEP_SUMMARY
           fi
 
-  # ════════════════════════════════════════════════════════════════════════════
-  # Final Gate — Tổng hợp kết quả, chỉ pass khi TẤT CẢ jobs trên đều pass.
-  # Dùng làm Required Status Check trong GitHub Branch Protection.
-  # ════════════════════════════════════════════════════════════════════════════
   security-gate:
     name: "Security Gate"
     runs-on: [self-hosted, k3s, mlops]
