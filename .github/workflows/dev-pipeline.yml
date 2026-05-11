@@ -39,7 +39,7 @@ jobs:
       - name: Install and Run SonarQube Scanner
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+          SONAR_HOST_URL: 'http://sonarqube-sonarqube.mlops-infra.svc.cluster.local:9000'
         run: |
           echo "Downloading SonarScanner CLI..."
           curl -sL https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip -o sonar-scanner.zip
