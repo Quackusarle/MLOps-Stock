@@ -7,8 +7,14 @@ import asyncio
 from fastapi import FastAPI, HTTPException
 import numpy as np
 import joblib
+import json
+import redis.asyncio as redis
 from src.models_logic.decision_policy import build_decision, DecisionContext
 from src.models_logic.model_loader import download_model_artifacts
+
+REDIS_HOST = os.getenv("REDIS_HOST", "localhost")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
 
 app = FastAPI(title="Ensemble API Gateway")
 
@@ -29,6 +35,17 @@ async def fetch_async(client, url, payload=None):
 async def ensemble_predict(ticker: str):
     try:
         sym = ticker.upper()
+        cache_key = f"predict:{sym}"
+        
+        # Kiểm tra Cache trước
+        try:
+            cached_result = await redis_client.get(cache_key)
+            if cached_result:
+                print(f"[Cache Hit] Returning cached prediction for {sym}")
+                return json.loads(cached_result)
+        except Exception as e:
+            print(f"[Redis Error] Failed to read cache for {sym}: {e}")
+
         async with httpx.AsyncClient() as client:
             # 1. Gọi lấy dữ liệu
             data_res = await fetch_async(client, DATA_URL.format(ticker))
@@ -63,7 +80,6 @@ async def ensemble_predict(ticker: str):
             meta_input = np.array([[tft_price, lgbm_price]])
             meta_prediction = meta_learner.predict(meta_input)[0]
 
-        # 4. Áp dụng Kế toán Giao dịch (Decision Policy)
         features = data_res["features"]
         current_price = features["close"][-1]
         
@@ -78,7 +94,7 @@ async def ensemble_predict(ticker: str):
         result = build_decision(ctx)
         
         # Trả về kết quả cuối
-        return {
+        result_dict = {
             "ticker": sym,
             "current_price": float(current_price),
             "predicted_t3": float(meta_prediction),
@@ -92,6 +108,14 @@ async def ensemble_predict(ticker: str):
                 "uncertainty_pct": uncertainty
             }
         }
+        
+        try:
+            await redis_client.setex(cache_key, 43200, json.dumps(result_dict))
+            print(f"[Cache Miss] Saved prediction to Redis for {sym}")
+        except Exception as e:
+            print(f"[Redis Error] Failed to write cache for {sym}: {e}")
+            
+        return result_dict
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
