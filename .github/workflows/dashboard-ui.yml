@@ -128,3 +128,47 @@ jobs:
           echo "| Crane Push | Passed |" >> $GITHUB_STEP_SUMMARY
           echo "| Cosign Sign | Image Signed |" >> $GITHUB_STEP_SUMMARY
           echo "Image: \`${{ steps.meta.outputs.sha_tag }}\`" >> $GITHUB_STEP_SUMMARY
+
+  update-manifest:
+    name: Update ArgoCD Manifest
+    needs: build-scan-sign
+    if: success()
+    runs-on: [self-hosted, k3s, mlops]
+    steps:
+      - name: Checkout Manifest Repo
+        uses: actions/checkout@v4
+        with:
+          repository: Quackusarle/NT114_manifests
+          token: ${{ secrets.MANIFEST_REPO_PAT }}
+          path: manifests
+
+      - name: Update values.yaml
+        run: |
+          cd manifests/argocd/apps/mlops-stock
+          SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
+          
+          # Install yq
+          curl -sL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /tmp/yq
+          chmod +x /tmp/yq
+          
+          # Update dashboard-ui tag
+          /tmp/yq -i ".dashboardUi.image.tag = \"sha-${SHA_SHORT}\"" values.yaml
+          
+          # Verify the changes
+          git diff
+
+      - name: Commit and Push
+        run: |
+          cd manifests
+          git config user.name "GitHub Actions GitOps"
+          git config user.email "actions@github.com"
+          git add argocd/apps/mlops-stock/values.yaml
+          
+          # Only commit if there are changes
+          if ! git diff-index --quiet HEAD; then
+            SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
+            git commit -m "chore: update dashboard-ui image tag to sha-${SHA_SHORT} [skip ci]"
+            git push origin HEAD:main
+          else
+            echo "No changes to commit"
+          fi
