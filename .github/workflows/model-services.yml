@@ -7,10 +7,11 @@ on:
   workflow_dispatch:
     inputs:
       service:
-        description: 'Service to build (empty = build all)'
-        required: false
+        description: 'Service to build'
+        required: true
         type: choice
-        options: ['', lgbm_api, tft_api, ensemble_api, data_api]
+        default: 'all'
+        options: ['all', 'lgbm_api', 'tft_api', 'ensemble_api', 'data_api']
 
 permissions:
   contents: read
@@ -65,16 +66,16 @@ jobs:
         include:
           - service: lgbm_api
             image_suffix: lgbm-api
-            should_build: ${{ needs.detect-changes.outputs.lgbm_api == 'true' || github.event.inputs.service == 'lgbm_api' || github.event.inputs.service == '' && github.event_name == 'workflow_dispatch' }}
+            should_build: ${{ needs.detect-changes.outputs.lgbm_api == 'true' || github.event.inputs.service == 'lgbm_api' || (github.event.inputs.service == 'all' && github.event_name == 'workflow_dispatch') }}
           - service: tft_api
             image_suffix: tft-api
-            should_build: ${{ needs.detect-changes.outputs.tft_api == 'true' || github.event.inputs.service == 'tft_api' || github.event.inputs.service == '' && github.event_name == 'workflow_dispatch' }}
+            should_build: ${{ needs.detect-changes.outputs.tft_api == 'true' || github.event.inputs.service == 'tft_api' || (github.event.inputs.service == 'all' && github.event_name == 'workflow_dispatch') }}
           - service: ensemble_api
             image_suffix: ensemble-api
-            should_build: ${{ needs.detect-changes.outputs.ensemble_api == 'true' || github.event.inputs.service == 'ensemble_api' || github.event.inputs.service == '' && github.event_name == 'workflow_dispatch' }}
+            should_build: ${{ needs.detect-changes.outputs.ensemble_api == 'true' || github.event.inputs.service == 'ensemble_api' || (github.event.inputs.service == 'all' && github.event_name == 'workflow_dispatch') }}
           - service: data_api
             image_suffix: data-api
-            should_build: ${{ needs.detect-changes.outputs.data_api == 'true' || github.event.inputs.service == 'data_api' || github.event.inputs.service == '' && github.event_name == 'workflow_dispatch' }}
+            should_build: ${{ needs.detect-changes.outputs.data_api == 'true' || github.event.inputs.service == 'data_api' || (github.event.inputs.service == 'all' && github.event_name == 'workflow_dispatch') }}
 
     steps:
       - name: Skip check

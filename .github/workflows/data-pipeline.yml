@@ -37,15 +37,15 @@ jobs:
 
       - name: Configure DVC with AWS S3
         run: |
-          dvc init || true
-          dvc remote add -d myaws s3://stock-models-dacn/dvc-data || true
           dvc remote modify --local myaws access_key_id ${{ secrets.AWS_ACCESS_KEY_ID }}
           dvc remote modify --local myaws secret_access_key ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          dvc remote modify --local myaws session_token ${{ secrets.AWS_SESSION_TOKEN }}
 
       - name: Push Data to AWS S3
         run: |
           export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
           export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          export AWS_SESSION_TOKEN=${{ secrets.AWS_SESSION_TOKEN }}
           export AWS_REGION=us-east-1
           
           dvc add data/

@@ -25,6 +25,7 @@ terraform/eks-terraform/terraform.tfvars
 terraform/eks-terraform/.terraform/
 terraform/eks-terraform/.terraform.lock.hcl
 
+
 models/
 /data
 
