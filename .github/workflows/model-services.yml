@@ -177,3 +177,61 @@ jobs:
       - name: Cleanup
         if: always()
         run: rm -f /tmp/${{ matrix.service }}.tar
+
+  update-manifest:
+    name: Update ArgoCD Manifests
+    needs: [detect-changes, build-scan-push]
+    if: success() && (needs.detect-changes.outputs.lgbm_api == 'true' || needs.detect-changes.outputs.tft_api == 'true' || needs.detect-changes.outputs.ensemble_api == 'true' || needs.detect-changes.outputs.data_api == 'true')
+    runs-on: [self-hosted, k3s, mlops]
+    steps:
+      - name: Checkout Manifest Repo
+        uses: actions/checkout@v4
+        with:
+          repository: Quackusarle/NT114_manifests
+          token: ${{ secrets.MANIFEST_REPO_PAT }}
+          path: manifests
+
+      - name: Update values.yaml
+        run: |
+          cd manifests/argocd/apps/mlops-stock
+          SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
+          
+          # Install yq
+          curl -sL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o /tmp/yq
+          chmod +x /tmp/yq
+          
+          # Update tags using yq
+          if [ "${{ needs.detect-changes.outputs.lgbm_api }}" == "true" ]; then
+            /tmp/yq -i ".lgbmApi.image.tag = \"sha-${SHA_SHORT}\"" values.yaml
+          fi
+          
+          if [ "${{ needs.detect-changes.outputs.tft_api }}" == "true" ]; then
+            /tmp/yq -i ".tftApi.image.tag = \"sha-${SHA_SHORT}\"" values.yaml
+          fi
+          
+          if [ "${{ needs.detect-changes.outputs.ensemble_api }}" == "true" ]; then
+            /tmp/yq -i ".ensembleApi.image.tag = \"sha-${SHA_SHORT}\"" values.yaml
+          fi
+          
+          if [ "${{ needs.detect-changes.outputs.data_api }}" == "true" ]; then
+            /tmp/yq -i ".dataApi.image.tag = \"sha-${SHA_SHORT}\"" values.yaml
+          fi
+          
+          # Verify the changes
+          git diff
+
+      - name: Commit and Push
+        run: |
+          cd manifests
+          git config user.name "GitHub Actions GitOps"
+          git config user.email "actions@github.com"
+          git add argocd/apps/mlops-stock/values.yaml
+          
+          # Only commit if there are changes
+          if ! git diff-index --quiet HEAD; then
+            SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
+            git commit -m "chore: update model services image tags to sha-${SHA_SHORT} [skip ci]"
+            git push origin HEAD:main
+          else
+            echo "No changes to commit"
+          fi

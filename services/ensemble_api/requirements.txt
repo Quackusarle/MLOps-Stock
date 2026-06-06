@@ -6,3 +6,4 @@ httpx
 mlflow
 boto3
 s3fs
+redis
