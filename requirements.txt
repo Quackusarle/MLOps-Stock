@@ -15,3 +15,4 @@ kfp
 mlflow
 boto3
 s3fs
+redis
