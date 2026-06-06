@@ -19,7 +19,11 @@ test_results/
 *.csv
 *.xlsx
 
-giang_code/
+terraform/eks-terraform/terraform.tfstate
+terraform/eks-terraform/terraform.tfstate.backup
+terraform/eks-terraform/terraform.tfvars
+terraform/eks-terraform/.terraform/
+terraform/eks-terraform/.terraform.lock.hcl
 
 models/
 /data
