@@ -30,10 +30,10 @@ def stock_training_pipeline(
     # Iterate over symbols to launch parallel training tasks
     with dsl.ParallelFor(symbols) as item:
         train_task = train_stock_model(symbol=item)
-        train_task.set_env_variable('MLFLOW_TRACKING_URI', 'http://mlflow-local.mlops-infra.svc.cluster.local:5000')
-        train_task.set_env_variable('MLFLOW_S3_ENDPOINT_URL', 'http://minio-svc.mlops-infra.svc.cluster.local:9000')
-        train_task.set_env_variable('AWS_ACCESS_KEY_ID', os.environ.get('MINIO_ACCESS_KEY', 'minioadmin'))
-        train_task.set_env_variable('AWS_SECRET_ACCESS_KEY', os.environ.get('MINIO_SECRET_KEY', 'nammoadidaphat'))
+        train_task.set_env_variable('MLFLOW_TRACKING_URI', os.environ.get('MLFLOW_TRACKING_URI', ''))
+        train_task.set_env_variable('AWS_ACCESS_KEY_ID', os.environ.get('AWS_ACCESS_KEY_ID', ''))
+        train_task.set_env_variable('AWS_SECRET_ACCESS_KEY', os.environ.get('AWS_SECRET_ACCESS_KEY', ''))
+        train_task.set_env_variable('AWS_REGION', os.environ.get('AWS_REGION', 'us-east-1'))
         # Tối ưu CPU cho PyTorch/LightGBM khi chạy trong container
         train_task.set_env_variable('OMP_NUM_THREADS', '2')
         train_task.set_env_variable('MKL_NUM_THREADS', '2')
