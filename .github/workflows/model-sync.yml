@@ -1,119 +1,50 @@
-name: "5. Model Weights Sync (MinIO → AWS S3)"
+name: "5. Restart API Pods"
 
 on:
   workflow_run:
     workflows: ["2. Model Training Pipeline"]
     types: [completed]
   workflow_dispatch:
-    inputs:
-      force_full_sync:
-        description: 'Force full re-sync (ignore incremental)'
-        required: false
-        type: boolean
-        default: false
+
 
 permissions:
   contents: read
   id-token: write
 
 env:
-  AWS_REGION: ap-southeast-1
-  S3_BUCKET: mlops-stock-models
-  MINIO_ENDPOINT: http://minio-svc.mlops-infra.svc.cluster.local:9000
-  MINIO_BUCKET: mlflow-artifacts
+  AWS_REGION: us-east-1
 
 jobs:
-  sync-to-s3:
-    name: Sync MLflow Artifacts → AWS S3
+  restart-api:
+    name: Restart API Pods on EKS
     if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     runs-on: [self-hosted, k3s, mlops]
 
     steps:
-      - name: Install MinIO Client
-        run: |
-          curl -sL https://dl.min.io/client/mc/release/linux-amd64/mc -o /tmp/mc
-          chmod +x /tmp/mc
-          echo "MinIO Client installed"
-          /tmp/mc --version
-
-      - name: Configure MinIO alias (Local K3s)
-        run: |
-          /tmp/mc alias set myminio \
-            "${{ env.MINIO_ENDPOINT }}" \
-            "${{ secrets.MINIO_ACCESS_KEY }}" \
-            "${{ secrets.MINIO_SECRET_KEY }}"
-          echo "MinIO alias configured"
-          /tmp/mc ls myminio/${{ env.MINIO_BUCKET }}/ --summarize
-
-      - name: Configure AWS Credentials (OIDC)
+      - name: Configure AWS Credentials (Lab Environment)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_OIDC_ROLE_ARN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Verify AWS Identity
+      - name: Update Kubeconfig for EKS
         run: |
-          aws sts get-caller-identity
-          echo "S3 bucket: s3://${{ env.S3_BUCKET }}"
-
-      - name: Configure S3 alias for mc
-        run: |
-          /tmp/mc alias set myaws \
-            "https://s3.${{ env.AWS_REGION }}.amazonaws.com" \
-            "$AWS_ACCESS_KEY_ID" \
-            "$AWS_SECRET_ACCESS_KEY" \
-            --api S3v4
-
-      - name: Sync MLflow Artifacts (MinIO → S3)
-        run: |
-          echo "Starting incremental mirror: myminio/${{ env.MINIO_BUCKET }} → myaws/${{ env.S3_BUCKET }}/mlflow-artifacts/"
-
-          MIRROR_FLAGS="--overwrite"
-          if [ "${{ inputs.force_full_sync }}" == "true" ]; then
-            MIRROR_FLAGS="--overwrite --remove"
-            echo "Force full sync enabled — will remove files on S3 not present in MinIO"
-          fi
-
-          /tmp/mc mirror $MIRROR_FLAGS \
-            myminio/${{ env.MINIO_BUCKET }} \
-            myaws/${{ env.S3_BUCKET }}/mlflow-artifacts/
-
-          echo "Sync completed successfully"
-
-      - name: Summary
-        run: |
-          echo "## Model Weights Sync Report" >> $GITHUB_STEP_SUMMARY
-          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Source | MinIO \`${{ env.MINIO_BUCKET }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Destination | S3 \`${{ env.S3_BUCKET }}/mlflow-artifacts/\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Auth | OIDC (no stored keys) |" >> $GITHUB_STEP_SUMMARY
-          echo "| Trigger | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
-
-          # Liệt kê các experiment IDs đã sync
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Synced Experiments" >> $GITHUB_STEP_SUMMARY
-          /tmp/mc ls myminio/${{ env.MINIO_BUCKET }}/ 2>/dev/null | head -20 >> $GITHUB_STEP_SUMMARY || true
-
-      - name: Cleanup
-        if: always()
-        run: rm -f /tmp/mc
+          aws eks update-kubeconfig --region ${{ env.AWS_REGION }} --name mlops-stock
 
       - name: Restart API Pods (Hot-Reload Models)
         run: |
-          echo "Triggering rolling restart for API services to load new models..."
-          # Install kubectl if not present in runner
+          echo "Triggering rolling restart for API services on EKS to load new models..."
           if ! command -v kubectl &> /dev/null; then
             curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
             chmod +x kubectl
             sudo mv kubectl /usr/local/bin/ || mv kubectl /tmp/kubectl && export PATH=$PATH:/tmp
           fi
           
-          # Restart deployments
           kubectl rollout restart deployment/tft-api deployment/lgbm-api deployment/ensemble-api -n mlops-stock
           
-          # Wait for rollout to complete
           kubectl rollout status deployment/tft-api -n mlops-stock --timeout=120s
           kubectl rollout status deployment/lgbm-api -n mlops-stock --timeout=120s
           kubectl rollout status deployment/ensemble-api -n mlops-stock --timeout=120s
-          echo "All API pods have been successfully restarted with new weights!"
+          echo "All API pods on EKS have been successfully restarted and are serving new weights!"
