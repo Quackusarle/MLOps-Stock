@@ -125,7 +125,7 @@ jobs:
         if: ${{ matrix.should_build == true || matrix.should_build == 'true' }}
         uses: aquasecurity/trivy-action@master
         with:
-          cache: true
+          cache: false
           cache-dir: /tmp/trivy-cache
           input: '/tmp/${{ matrix.service }}.tar'
           format: 'table'
@@ -136,7 +136,7 @@ jobs:
         if: ${{ (matrix.should_build == true || matrix.should_build == 'true') && always() }}
         uses: aquasecurity/trivy-action@master
         with:
-          cache: true
+          cache: false
           cache-dir: /tmp/trivy-cache
           input: '/tmp/${{ matrix.service }}.tar'
           format: 'sarif'
@@ -154,7 +154,7 @@ jobs:
         if: ${{ matrix.should_build == true || matrix.should_build == 'true' }}
         uses: aquasecurity/trivy-action@master
         with:
-          cache: true
+          cache: false
           cache-dir: /tmp/trivy-cache
           input: '/tmp/${{ matrix.service }}.tar'
           format: 'cyclonedx'
