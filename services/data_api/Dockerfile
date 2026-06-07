@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.4
 # ============================================================
 # Data API — Kéo dữ liệu chứng khoán từ Yahoo Finance
 # ============================================================
@@ -11,7 +12,8 @@ WORKDIR /app
 
 # Layer 1: Dependencies (cached)
 COPY services/data_api/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt
 
 # Layer 2: Shared source modules
 COPY src/ /app/src/

@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.4
 # ============================================================
 # Training Image — Dùng bởi KFP để huấn luyện model
 # Tối ưu: CPU-only torch, chỉ cài thư viện training cần
@@ -17,8 +18,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Layer 2: Training-specific dependencies (cached mạnh)
 COPY requirements.training.txt .
-RUN pip install --no-cache-dir -r requirements.training.txt \
-    && rm -rf /root/.cache/pip
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.training.txt
 
 # Layer 3: Source code & Data
 COPY src/ /app/src/

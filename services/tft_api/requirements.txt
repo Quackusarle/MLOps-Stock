@@ -1,8 +1,9 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
 fastapi
 uvicorn[standard]
 pandas
 numpy
-torch --index-url https://download.pytorch.org/whl/cpu
+torch
 joblib
 mlflow
 boto3

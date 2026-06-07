@@ -36,14 +36,25 @@ jobs:
           name: coverage-report
           path: .
 
+      - name: Cache SonarScanner
+        id: cache-sonar
+        uses: actions/cache@v4
+        with:
+          path: sonar-scanner-5.0.1.3006-linux
+          key: ${{ runner.os }}-sonar-scanner-5.0.1.3006
+
       - name: Install and Run SonarQube Scanner
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: 'http://sonarqube-sonarqube.mlops-infra.svc.cluster.local:9000'
         run: |
-          echo "Downloading SonarScanner CLI..."
-          curl -sL https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip -o sonar-scanner.zip
-          unzip -q sonar-scanner.zip
+          if [ ! -d "sonar-scanner-5.0.1.3006-linux" ]; then
+            echo "Downloading SonarScanner CLI..."
+            curl -sL https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-5.0.1.3006-linux.zip -o sonar-scanner.zip
+            unzip -q sonar-scanner.zip
+          else
+            echo "Using cached SonarScanner CLI..."
+          fi
           export PATH=$PATH:$PWD/sonar-scanner-5.0.1.3006-linux/bin
           
           echo "Running SonarScanner..."
