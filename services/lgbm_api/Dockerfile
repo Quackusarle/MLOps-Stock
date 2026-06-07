@@ -2,15 +2,14 @@
 # ============================================================
 # LightGBM API — Dự đoán bằng GBDT, tải weights từ MLflow/MinIO
 # ============================================================
-FROM python:3.9-slim
+FROM python:3.11.15-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH="/app"
 
 # Defaults cho in-cluster communication (override bằng K8s env khi deploy)
-ENV MLFLOW_TRACKING_URI="http://mlflow-local.mlops-infra.svc.cluster.local:5000"
-ENV MLFLOW_S3_ENDPOINT_URL="http://minio-svc.mlops-infra.svc.cluster.local:9000"
+ENV MLFLOW_TRACKING_URI="http://mlflow-svc.mlops-infra.svc.cluster.local:5000"
 
 WORKDIR /app
 
