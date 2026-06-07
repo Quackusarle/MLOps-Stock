@@ -202,6 +202,7 @@ jobs:
           repository: Quackusarle/NT114_manifests
           token: ${{ secrets.MANIFEST_REPO_PAT }}
           path: manifests
+          ref: main
 
       - name: Update values.yaml
         run: |
@@ -243,7 +244,10 @@ jobs:
           if ! git diff-index --quiet HEAD; then
             SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
             git commit -m "chore: update model services image tags to sha-${SHA_SHORT} [skip ci]"
-            git push origin HEAD:main
+            
+            # Kéo code mới nhất về trước khi push để tránh lỗi rejected
+            git pull --rebase origin main
+            git push origin main
           else
             echo "No changes to commit"
           fi
