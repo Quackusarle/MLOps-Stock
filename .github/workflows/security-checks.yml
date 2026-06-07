@@ -96,7 +96,7 @@ jobs:
       - name: Run Trivy Filesystem Scan
         uses: aquasecurity/trivy-action@master
         with:
-          cache: true
+          cache: false
           cache-dir: /tmp/trivy-cache
           scan-type: 'fs'
           scan-ref: '.'
@@ -108,7 +108,7 @@ jobs:
         if: always()
         uses: aquasecurity/trivy-action@master
         with:
-          cache: true
+          cache: false
           cache-dir: /tmp/trivy-cache
           scan-type: 'fs'
           scan-ref: '.'

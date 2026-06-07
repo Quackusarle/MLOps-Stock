@@ -69,7 +69,7 @@ jobs:
       - name: "Trivy Image Scan"
         uses: aquasecurity/trivy-action@master
         with:
-          cache: true
+          cache: false
           cache-dir: /tmp/trivy-cache
           input: '/tmp/dashboard.tar'
           format: 'table'
@@ -80,7 +80,7 @@ jobs:
         if: always()
         uses: aquasecurity/trivy-action@master
         with:
-          cache: true
+          cache: false
           cache-dir: /tmp/trivy-cache
           input: '/tmp/dashboard.tar'
           format: 'sarif'

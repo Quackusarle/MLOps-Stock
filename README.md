@@ -1,43 +1,28 @@
-# MLOps Stock Hybrid Ensemble (Microservices Edition)
+# MLOps-Stock - Hệ thống Dự đoán Giá Cổ phiếu
 
-Hệ thống dự báo giá chứng khoán VN30 (T+3) sử dụng kiến trúc Hybrid Ensemble (TFT + LightGBM) được triển khai theo mô hình Microservices.
+Kho lưu trữ này chứa mã nguồn và luồng tích hợp liên tục (Continuous Integration - CI) cho hệ thống MLOps-Stock. Dự án tập trung vào việc áp dụng các mô hình học máy để phân tích và dự báo chuỗi thời gian dữ liệu chứng khoán.
 
-## 🚀 Cấu trúc Dự án
-- **`src/`**: Logic lõi (Data Pipeline, Model Architecture, Training logic).
-- **`services/`**: Các trạm dịch vụ API (Data, TFT, LGBM, Ensemble Gateway, Dashboard UI).
-- **`models/`**: Lưu trữ trọng số mô hình đã huấn luyện.
+## Kiến trúc Hệ thống & Công nghệ (Microservices)
 
-## 📦 Yêu cầu hệ thống
-- Python 3.9+
-- Docker & Docker Compose (Khuyên dùng)
+Hệ thống được thiết kế theo kiến trúc vi dịch vụ (Microservices), bao gồm các thành phần cốt lõi sau:
 
-## 🛠 Khởi động nhanh (Quick Start)
+- **Data API**: Đảm nhiệm việc thu thập, tiền xử lý và cung cấp dữ liệu chứng khoán theo thời gian thực.
+- **Model APIs**:
+  - **LightGBM API**: Phục vụ dự báo bằng mô hình Machine Learning truyền thống (LightGBM).
+  - **TFT API**: Phục vụ dự báo bằng mô hình Deep Learning chuyên dụng cho chuỗi thời gian (Temporal Fusion Transformer).
+- **Ensemble API**: Hoạt động như một Aggregation Layer, nhận kết quả từ các Model APIs và áp dụng logic kết hợp (Ensemble) để tối ưu hóa độ chính xác cuối cùng. Sử dụng Redis để caching.
+- **Dashboard UI**: Giao diện người dùng trực quan để theo dõi các chỉ số và kết quả dự đoán.
 
-### 1. Huấn luyện mô hình (Nếu cần)
-```powershell
-python src/training/final_ensemble_train.py
-```
+## Luồng Tích hợp Liên tục (CI Pipeline)
 
-### 2. Chạy hệ thống với Docker
-```powershell
-docker-compose up --build
-```
-Hệ thống sẽ chạy tại: [http://localhost:8081](http://localhost:8081)
+Quy trình phát triển được tự động hóa hoàn toàn thông qua **GitHub Actions** với các Pipeline độc lập:
+1. **Source Control & Trigger**: Kích hoạt khi có thay đổi trên mã nguồn, sử dụng cơ chế phát hiện thay đổi (path filtering) để chỉ build những dịch vụ bị ảnh hưởng (Monorepo strategy).
+2. **Build & Package**: Đóng gói các dịch vụ thành các Docker Image bằng Docker Buildx.
+3. **Security Scanning**: Tích hợp **Trivy** để quét các lỗ hổng bảo mật (CVEs) trên ảnh Docker trước khi phát hành.
+4. **Image Signing**: Tích hợp **Cosign** để ký xác thực tính toàn vẹn của ảnh Docker.
+5. **Registry Push**: Đẩy ảnh đã xác thực lên Docker Hub.
+6. **Manifest Update**: Tự động cập nhật mã định danh ảnh (Image Hash) sang kho lưu trữ GitOps để kích hoạt quy trình triển khai (CD).
 
-## 📡 Danh sách Microservices
-| Dịch vụ | Port | Chức năng |
-| :--- | :--- | :--- |
-| Data API | 8001 | Tải và xử lý dữ liệu Yahoo Finance |
-| TFT API | 8002 | Suy luận mô hình Deep Learning TFT |
-| LGBM API | 8003 | Suy luận mô hình Machine Learning LightGBM |
-| Ensemble Gateway | 8080 | Gateway điều phối & Meta-learner |
-| Dashboard UI | 8081 | Giao diện Web hiển thị kết quả |
-
-## 🧪 Kiểm tra API
-Bạn có thể kiểm tra trực tiếp qua curl:
-```powershell
-curl http://localhost:8080/predict/FPT
-```
-
----
-Dự án được thiết kế để dễ dàng mở rộng (Scalability) và sẵn sàng cho các quy trình MLOps tự động.
+**Contributors:**
+- Trần Việt Hoàng
+- Lê Đình Hiếu
