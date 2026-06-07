@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.4
 # ============================================================
 # LightGBM API — Dự đoán bằng GBDT, tải weights từ MLflow/MinIO
 # ============================================================
@@ -15,7 +16,8 @@ WORKDIR /app
 
 # Layer 1: Dependencies (cached — lightgbm nhẹ hơn torch rất nhiều)
 COPY services/lgbm_api/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt
 
 # Layer 2: Shared source modules
 COPY src/ /app/src/

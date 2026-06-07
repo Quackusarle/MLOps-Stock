@@ -52,7 +52,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11.15'
-
+          cache: 'pip'
+          cache-dependency-path: '.github/requirements.txt'
 
       - name: DVC Pull Data
         run: |
@@ -79,7 +80,7 @@ jobs:
       - name: Trivy Image Scan
         uses: aquasecurity/trivy-action@master
         with:
-          cache: false
+          cache: true
           cache-dir: /tmp/trivy-cache
           input: '/tmp/trainer.tar'
           format: 'table'
@@ -89,7 +90,7 @@ jobs:
         if: always()
         uses: aquasecurity/trivy-action@master
         with:
-          cache: false
+          cache: true
           cache-dir: /tmp/trivy-cache
           input: '/tmp/trainer.tar'
           format: 'sarif'
@@ -127,7 +128,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11.15'
-
+          cache: 'pip'
+          cache-dependency-path: '.github/requirements.txt'
 
       - name: Install KFP dependencies
         run: |
