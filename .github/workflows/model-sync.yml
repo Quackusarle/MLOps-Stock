@@ -42,9 +42,10 @@ jobs:
             sudo mv kubectl /usr/local/bin/ || mv kubectl /tmp/kubectl && export PATH=$PATH:/tmp
           fi
           
-          kubectl rollout restart deployment/tft-api deployment/lgbm-api deployment/ensemble-api -n mlops-stock
+          kubectl rollout restart deployment/tft-api deployment/lgbm-api deployment/ensemble-api deployment/data-api -n mlops-stock
           
           kubectl rollout status deployment/tft-api -n mlops-stock --timeout=120s
           kubectl rollout status deployment/lgbm-api -n mlops-stock --timeout=120s
           kubectl rollout status deployment/ensemble-api -n mlops-stock --timeout=120s
+          kubectl rollout status deployment/data-api -n mlops-stock --timeout=120s
           echo "All API pods on EKS have been successfully restarted and are serving new weights!"
