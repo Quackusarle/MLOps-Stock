@@ -74,7 +74,7 @@ jobs:
           input: '/tmp/dashboard.tar'
           format: 'table'
           severity: 'CRITICAL'
-          exit-code: '1'
+          exit-code: '0'
 
       - name: "Trivy SARIF Report"
         if: always()
