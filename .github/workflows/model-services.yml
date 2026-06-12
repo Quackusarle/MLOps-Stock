@@ -2,7 +2,7 @@ name: "4. Model Services Pipeline"
 
 on:
   push:
-    branches: [main]
+    branches: [dev]
     paths: ['services/lgbm_api/**', 'services/tft_api/**', 'services/ensemble_api/**', 'services/data_api/**', 'src/**', 'requirements.txt']
   workflow_dispatch:
     inputs:
@@ -204,7 +204,7 @@ jobs:
           path: manifests
           ref: main
 
-      - name: Update values.yaml
+      - name: Update values-dev.yaml
         run: |
           cd manifests/argocd/apps/mlops-stock
           SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
@@ -215,19 +215,19 @@ jobs:
           
           # Update tags using yq
           if [ "${{ needs.detect-changes.outputs.lgbm_api }}" == "true" ] || [ "${{ github.event.inputs.service }}" == "all" ] || [ "${{ github.event.inputs.service }}" == "lgbm_api" ]; then
-            /tmp/yq -i ".lgbmApi.image.tag = \"sha-${SHA_SHORT}\"" values.yaml
+            /tmp/yq -i ".lgbmApi.image.tag = \"sha-${SHA_SHORT}\"" values-dev.yaml
           fi
           
           if [ "${{ needs.detect-changes.outputs.tft_api }}" == "true" ] || [ "${{ github.event.inputs.service }}" == "all" ] || [ "${{ github.event.inputs.service }}" == "tft_api" ]; then
-            /tmp/yq -i ".tftApi.image.tag = \"sha-${SHA_SHORT}\"" values.yaml
+            /tmp/yq -i ".tftApi.image.tag = \"sha-${SHA_SHORT}\"" values-dev.yaml
           fi
           
           if [ "${{ needs.detect-changes.outputs.ensemble_api }}" == "true" ] || [ "${{ github.event.inputs.service }}" == "all" ] || [ "${{ github.event.inputs.service }}" == "ensemble_api" ]; then
-            /tmp/yq -i ".ensembleApi.image.tag = \"sha-${SHA_SHORT}\"" values.yaml
+            /tmp/yq -i ".ensembleApi.image.tag = \"sha-${SHA_SHORT}\"" values-dev.yaml
           fi
           
           if [ "${{ needs.detect-changes.outputs.data_api }}" == "true" ] || [ "${{ github.event.inputs.service }}" == "all" ] || [ "${{ github.event.inputs.service }}" == "data_api" ]; then
-            /tmp/yq -i ".dataApi.image.tag = \"sha-${SHA_SHORT}\"" values.yaml
+            /tmp/yq -i ".dataApi.image.tag = \"sha-${SHA_SHORT}\"" values-dev.yaml
           fi
           
           # Verify the changes
@@ -238,12 +238,12 @@ jobs:
           cd manifests
           git config user.name "GitHub Actions GitOps"
           git config user.email "actions@github.com"
-          git add argocd/apps/mlops-stock/values.yaml
+          git add argocd/apps/mlops-stock/values-dev.yaml
           
           # Only commit if there are changes
           if ! git diff-index --quiet HEAD; then
             SHA_SHORT=$(echo ${{ github.sha }} | cut -c1-7)
-            git commit -m "chore: update model services image tags to sha-${SHA_SHORT} [skip ci]"
+            git commit -m "chore: update dev model services image tags to sha-${SHA_SHORT} [skip ci]"
             
             # Kéo code mới nhất về trước khi push để tránh lỗi rejected
             git pull --rebase origin main
