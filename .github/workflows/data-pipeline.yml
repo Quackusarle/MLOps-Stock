@@ -64,6 +64,9 @@ jobs:
           # Đánh dấu (Tag) phiên bản dữ liệu
           git tag -a "data-$TODAY" -m "Phiên bản dữ liệu chứng khoán ngày $TODAY" || true
           
+          # Pull rebase trước khi push để tránh rejected
+          git pull --rebase origin main
+          
           # Push code và Push Tag
           git push origin main
           git push origin "data-$TODAY"
