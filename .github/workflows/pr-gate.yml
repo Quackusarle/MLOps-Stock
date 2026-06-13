@@ -55,10 +55,7 @@ jobs:
 
           sonar-scanner \
             -Dsonar.host.url="${SONAR_HOST_URL}" \
-            -Dsonar.login="${SONAR_TOKEN}" \
-            -Dsonar.pullrequest.key="${{ github.event.pull_request.number }}" \
-            -Dsonar.pullrequest.branch="${{ github.head_ref }}" \
-            -Dsonar.pullrequest.base="${{ github.base_ref }}"
+            -Dsonar.login="${SONAR_TOKEN}"
 
       - name: Post Summary
         run: |
