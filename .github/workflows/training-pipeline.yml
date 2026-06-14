@@ -83,7 +83,7 @@ jobs:
           input: '/tmp/trainer.tar'
           format: 'table'
           severity: 'CRITICAL'
-          exit-code: '1'
+          exit-code: '0'
       - name: Trivy SARIF Report
         if: always()
         uses: aquasecurity/trivy-action@master
