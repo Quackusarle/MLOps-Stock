@@ -13,7 +13,10 @@ ENV MLFLOW_TRACKING_URI="http://mlflow-svc.mlops-infra.svc.cluster.local:5000"
 
 WORKDIR /app
 
-# Layer 1: Dependencies (cached — lightgbm nhẹ hơn torch rất nhiều)
+# Layer 1: System dependencies for LightGBM
+RUN apt-get update && apt-get install -y libgomp1 && rm -rf /var/lib/apt/lists/*
+
+# Layer 2: Python Dependencies (cached — lightgbm nhẹ hơn torch rất nhiều)
 COPY services/lgbm_api/requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r requirements.txt

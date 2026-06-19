@@ -37,9 +37,20 @@ def compile_and_submit():
         )
         print(f"Bắt đầu run thành công! ID: {run_result.run_id}")
         
+        # 5. Chờ pipeline hoàn thành (timeout 1 tiếng = 3600s)
+        print("Đang chờ Pipeline hoàn thành quá trình Training và Upload model lên MLflow...")
+        response = client.wait_for_run_completion(run_result.run_id, timeout=3600)
+        
+        # Kiểm tra trạng thái cuối cùng
+        if response.run.status != 'Succeeded':
+            raise Exception(f"Pipeline chạy thất bại với trạng thái: {response.run.status}")
+            
+        print("Pipeline đã hoàn thành thành công! Sẵn sàng khởi động lại API.")
+        
     except Exception as e:
-        print(f"Không thể kết nối đến KFP hoặc submit không thành công: {str(e)}")
-        print("Xin hãy kiểm tra biến môi trường KFP_HOST")
+        print(f"Lỗi: {str(e)}")
+        import sys
+        sys.exit(1)
 
 if __name__ == '__main__':
     compile_and_submit()
