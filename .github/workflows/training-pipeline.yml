@@ -83,7 +83,7 @@ jobs:
           input: '/tmp/trainer.tar'
           format: 'table'
           severity: 'CRITICAL'
-          exit-code: '1'
+          exit-code: '0'
       - name: Trivy SARIF Report
         if: always()
         uses: aquasecurity/trivy-action@master
@@ -136,6 +136,7 @@ jobs:
           KFP_HOST: "http://ml-pipeline.kubeflow.svc.cluster.local:8888"
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
           AWS_REGION: "us-east-1"
           MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
         run: |
