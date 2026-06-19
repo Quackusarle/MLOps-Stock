@@ -35,11 +35,19 @@ module "eks" {
       description                   = "Allow access from control plane to webhook port of ALB controller"
     }
     ingress_vpc_all = {
-      description = "Allow all traffic from VPC (Pod to Pod cross-node)"
+      description = "Allow all traffic from VPC"
       protocol    = "-1"
       from_port   = 0
       to_port     = 0
       type        = "ingress"
+      cidr_blocks = ["10.0.0.0/16"]
+    }
+    egress_vpc_all = {
+      description = "Allow all outbound traffic to VPC"
+      protocol    = "-1"
+      from_port   = 0
+      to_port     = 0
+      type        = "egress"
       cidr_blocks = ["10.0.0.0/16"]
     }
   }
