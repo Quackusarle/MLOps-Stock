@@ -33,6 +33,7 @@ def stock_training_pipeline(
         train_task.set_env_variable('MLFLOW_TRACKING_URI', os.environ.get('MLFLOW_TRACKING_URI', ''))
         train_task.set_env_variable('AWS_ACCESS_KEY_ID', os.environ.get('AWS_ACCESS_KEY_ID', ''))
         train_task.set_env_variable('AWS_SECRET_ACCESS_KEY', os.environ.get('AWS_SECRET_ACCESS_KEY', ''))
+        train_task.set_env_variable('AWS_SESSION_TOKEN', os.environ.get('AWS_SESSION_TOKEN', ''))
         train_task.set_env_variable('AWS_REGION', os.environ.get('AWS_REGION', 'us-east-1'))
         # Tối ưu CPU cho PyTorch/LightGBM khi chạy trong container
         train_task.set_env_variable('OMP_NUM_THREADS', '2')

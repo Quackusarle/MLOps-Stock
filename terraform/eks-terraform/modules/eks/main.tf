@@ -34,6 +34,7 @@ module "eks" {
       source_cluster_security_group = true
       description                   = "Allow access from control plane to webhook port of ALB controller"
     }
+    
     ingress_vpc_all = {
       description = "Allow all traffic from VPC"
       protocol    = "-1"
@@ -42,6 +43,7 @@ module "eks" {
       type        = "ingress"
       cidr_blocks = ["10.0.0.0/16"]
     }
+
     egress_vpc_all = {
       description = "Allow all outbound traffic to VPC"
       protocol    = "-1"
