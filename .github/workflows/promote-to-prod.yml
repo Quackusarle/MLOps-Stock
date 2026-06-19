@@ -3,6 +3,7 @@ name: "6. Promote Dev Images to Prod"
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
   group: promote-to-prod-${{ github.ref }}
