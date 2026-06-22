@@ -42,7 +42,7 @@ jobs:
 
       - name: Restart API Pods (Hot-Reload Models)
         run: |
-          echo "Triggering rolling restart for API services on EKS to load new models..."
+          echo "Triggering rolling restart for API services..."
           if ! command -v kubectl &> /dev/null; then
             curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
             chmod +x kubectl
@@ -55,4 +55,4 @@ jobs:
           kubectl rollout status deployment/lgbm-api -n mlops-stock-prod --timeout=120s
           kubectl rollout status deployment/ensemble-api -n mlops-stock-prod --timeout=120s
           kubectl rollout status deployment/data-api -n mlops-stock-prod --timeout=120s
-          echo "All API pods on EKS have been successfully restarted and are serving new weights!"
+          echo "Rolling restart completed."

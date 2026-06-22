@@ -3,7 +3,7 @@ name: "4. Model Services Pipeline"
 on:
   push:
     branches: [dev]
-    paths: ['services/lgbm_api/**', 'services/tft_api/**', 'services/ensemble_api/**', 'services/data_api/**', 'src/**', 'requirements.txt']
+    paths: ['services/lgbm_api/**', 'services/tft_api/**', 'services/ensemble_api/**', 'services/data_api/**', 'services/monitor_api/**', 'src/**', 'requirements.txt']
   workflow_dispatch:
     inputs:
       service:
@@ -11,7 +11,7 @@ on:
         required: true
         type: choice
         default: 'all'
-        options: ['all', 'lgbm_api', 'tft_api', 'ensemble_api', 'data_api']
+        options: ['all', 'lgbm_api', 'tft_api', 'ensemble_api', 'data_api', 'monitor_api']
 
 permissions:
   contents: read
@@ -33,6 +33,7 @@ jobs:
       tft_api: ${{ steps.filter.outputs.tft_api }}
       ensemble_api: ${{ steps.filter.outputs.ensemble_api }}
       data_api: ${{ steps.filter.outputs.data_api }}
+      monitor_api: ${{ steps.filter.outputs.monitor_api }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -53,6 +54,10 @@ jobs:
               - 'requirements.txt'
             data_api:
               - 'services/data_api/**'
+              - 'src/**'
+              - 'requirements.txt'
+            monitor_api:
+              - 'services/monitor_api/**'
               - 'src/**'
               - 'requirements.txt'
 
@@ -76,6 +81,9 @@ jobs:
           - service: data_api
             image_suffix: data-api
             should_build: ${{ needs.detect-changes.outputs.data_api == 'true' || github.event.inputs.service == 'data_api' || (github.event.inputs.service == 'all' && github.event_name == 'workflow_dispatch') }}
+          - service: monitor_api
+            image_suffix: monitor-api
+            should_build: ${{ needs.detect-changes.outputs.monitor_api == 'true' || github.event.inputs.service == 'monitor_api' || (github.event.inputs.service == 'all' && github.event_name == 'workflow_dispatch') }}
 
     steps:
       - name: Skip check
@@ -193,7 +201,7 @@ jobs:
   update-manifest:
     name: Update ArgoCD Manifests
     needs: [detect-changes, build-scan-push]
-    if: success() && (needs.detect-changes.outputs.lgbm_api == 'true' || needs.detect-changes.outputs.tft_api == 'true' || needs.detect-changes.outputs.ensemble_api == 'true' || needs.detect-changes.outputs.data_api == 'true' || github.event_name == 'workflow_dispatch')
+    if: success() && (needs.detect-changes.outputs.lgbm_api == 'true' || needs.detect-changes.outputs.tft_api == 'true' || needs.detect-changes.outputs.ensemble_api == 'true' || needs.detect-changes.outputs.data_api == 'true' || needs.detect-changes.outputs.monitor_api == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: [self-hosted, k3s, mlops]
     steps:
       - name: Checkout Manifest Repo
@@ -228,6 +236,10 @@ jobs:
           
           if [ "${{ needs.detect-changes.outputs.data_api }}" == "true" ] || [ "${{ github.event.inputs.service }}" == "all" ] || [ "${{ github.event.inputs.service }}" == "data_api" ]; then
             /tmp/yq -i ".dataApi.image.tag = \"sha-${SHA_SHORT}\"" values-dev.yaml
+          fi
+          
+          if [ "${{ needs.detect-changes.outputs.monitor_api }}" == "true" ] || [ "${{ github.event.inputs.service }}" == "all" ] || [ "${{ github.event.inputs.service }}" == "monitor_api" ]; then
+            /tmp/yq -i ".monitorApi.image.tag = \"sha-${SHA_SHORT}\"" values-dev.yaml
           fi
           
           # Verify the changes

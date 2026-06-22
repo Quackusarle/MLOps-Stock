@@ -40,19 +40,19 @@ jobs:
           chmod +x /tmp/yq
 
           CHANGED=false
-          for service in dataApi tftApi lgbmApi ensembleApi dashboardUi; do
+          for service in dataApi tftApi lgbmApi ensembleApi dashboardUi monitorApi; do
             DEV_TAG=$(/tmp/yq ".${service}.image.tag" values-dev.yaml)
             PROD_TAG=$(/tmp/yq ".${service}.image.tag" values-prod.yaml)
             if [ -z "${DEV_TAG}" ] || [ "${DEV_TAG}" = "null" ]; then
-              echo "⚠️  Missing dev tag for ${service}, skipping"
+              echo "Missing dev tag for ${service}, skipping"
               continue
             fi
             if [ "${DEV_TAG}" != "${PROD_TAG}" ]; then
               /tmp/yq -i ".${service}.image.tag = \"${DEV_TAG}\"" values-prod.yaml
-              echo "✅ Promoted ${service}: ${PROD_TAG} → ${DEV_TAG}"
+              echo "Promoted ${service}: ${PROD_TAG} → ${DEV_TAG}"
               CHANGED=true
             else
-              echo "⏭️  ${service} already up-to-date: ${PROD_TAG}"
+              echo "${service} already up-to-date: ${PROD_TAG}"
             fi
           done
 
@@ -84,30 +84,30 @@ jobs:
             -H "Accept: application/vnd.github.v3+json" \
             https://api.github.com/repos/Quackusarle/NT114_manifests/pulls \
             -d "{
-              \"title\": \"🚀 Promote to Prod: sha-${SHA_SHORT}\",
-              \"body\": \"## Automated Production Promotion\n\nThis PR copies image tags from \`values-dev.yaml\` to \`values-prod.yaml\`.\n\n**Source commit:** \`${{ github.sha }}\`\n**Triggered by:** \`${{ github.actor }}\`\n\n> ⚠️ Review the tag changes and merge to deploy to production.\",
+              \"title\": \"Promote to Prod: sha-${SHA_SHORT}\",
+              \"body\": \"## Automated Production Promotion\n\nThis PR copies image tags from \`values-dev.yaml\` to \`values-prod.yaml\`.\n\n**Source commit:** \`${{ github.sha }}\`\n**Triggered by:** \`${{ github.actor }}\`\n\n> Review the tag changes and merge to deploy to production.\",
               \"head\": \"${BRANCH}\",
               \"base\": \"main\"
             }")
 
           if [ "${HTTP_STATUS}" -ge 200 ] && [ "${HTTP_STATUS}" -lt 300 ]; then
             PR_URL=$(cat /tmp/pr_response.json | grep -o '"html_url": "[^"]*"' | head -1 | cut -d'"' -f4)
-            echo "✅ PR created: ${PR_URL}"
+            echo "PR created: ${PR_URL}"
             echo "pr_url=${PR_URL}" >> $GITHUB_OUTPUT
           else
-            echo "❌ Failed to create PR (HTTP ${HTTP_STATUS})"
+            echo "Failed to create PR (HTTP ${HTTP_STATUS})"
             cat /tmp/pr_response.json
             exit 1
           fi
 
       - name: Skip - No Changes
         if: steps.promote.outputs.changed != 'true'
-        run: echo "✅ Prod values already match dev tags. No PR needed."
+        run: echo "Prod values already match dev tags. No PR needed."
 
       - name: Job Summary
         if: always()
         run: |
-          echo "## 🚀 Promote to Prod" >> $GITHUB_STEP_SUMMARY
+          echo "## Promote to Prod" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.promote.outputs.changed }}" == "true" ]; then
             echo "Created PR on manifest repo to promote dev image tags to production." >> $GITHUB_STEP_SUMMARY
           else
